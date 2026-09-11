@@ -3,13 +3,51 @@ import pandas as pd
 
 st.set_page_config(page_title="測量自動計算", layout="wide")
 
+# 色・デザイン設定
+st.markdown("""
+<style>
+.stApp {
+    background-color: #f1f5f9;
+}
+
+h1 {
+    color: #1e3a5f;
+}
+
+div[data-testid="stNumberInput"] {
+    background-color: #ffffff;
+    padding: 10px;
+    border-radius: 8px;
+}
+
+div[data-testid="stDataEditor"] {
+    background-color: #ffffff;
+    border-radius: 8px;
+}
+
+.stButton > button {
+    background-color: #2f6690;
+    color: white;
+    border-radius: 6px;
+    border: none;
+}
+
+.stButton > button:hover {
+    background-color: #245273;
+}
+</style>
+""", unsafe_allow_html=True)
+
+
 st.title("測量自動計算")
+
 base_gh = st.number_input(
     "基準GH",
     value=500.000,
     step=0.001,
     format="%.3f"
 )
+
 
 if "data" not in st.session_state:
     st.session_state.data = pd.DataFrame({
@@ -23,6 +61,7 @@ if "data" not in st.session_state:
         "GH": [None] * 10,
     })
 
+
 edited = st.data_editor(
     st.session_state.data,
     width="stretch",
@@ -30,6 +69,7 @@ edited = st.data_editor(
     key="survey_table",
     disabled=["累計距離", "IH", "GH"]
 )
+
 
 # 累計距離を計算
 total = 0.0
@@ -44,6 +84,7 @@ for distance in edited["距離"]:
             cumulative.append(total)
         except (ValueError, TypeError):
             cumulative.append(None)
+
 
 # IH・GHを計算
 ih_values = []
@@ -89,7 +130,6 @@ result = edited.copy()
 result["累計距離"] = cumulative
 result["IH"] = ih_values
 result["GH"] = gh_values
-
 
 st.session_state.data = result
 
