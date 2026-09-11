@@ -9,6 +9,10 @@ from st_aggrid import GridOptionsBuilder
 from st_aggrid import JsCode
 
 
+# =========================
+# ページ設定
+# =========================
+
 st.set_page_config(
     page_title="測量自動計算",
     layout="wide"
@@ -16,11 +20,12 @@ st.set_page_config(
 
 
 # =========================
-# 全体のデザイン
+# 全体デザイン
 # =========================
 
 st.markdown("""
 <style>
+
 .stApp {
     background-color: #f1f5f9;
 }
@@ -45,6 +50,7 @@ div[data-testid="stNumberInput"] {
 .stButton > button:hover {
     background-color: #245273;
 }
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -86,11 +92,12 @@ if "data" not in st.session_state:
     })
 
 
+data = st.session_state.data.copy()
+
+
 # =========================
 # 累計距離を計算
 # =========================
-
-data = st.session_state.data.copy()
 
 total = 0.0
 cumulative = []
@@ -137,6 +144,7 @@ for i, (bs, tp, ip) in enumerate(
     if pd.notna(bs):
 
         current_ih = current_gh + float(bs)
+
         ih_values.append(current_ih)
 
     else:
@@ -149,6 +157,7 @@ for i, (bs, tp, ip) in enumerate(
     if current_ih is not None and pd.notna(tp):
 
         current_gh = current_ih - float(tp)
+
         gh_values.append(current_gh)
 
 
@@ -157,6 +166,7 @@ for i, (bs, tp, ip) in enumerate(
     elif current_ih is not None and pd.notna(ip):
 
         current_gh = current_ih - float(ip)
+
         gh_values.append(current_gh)
 
 
@@ -173,7 +183,7 @@ for i, (bs, tp, ip) in enumerate(
 
 
 # =========================
-# 計算結果をデータに反映
+# 計算結果を反映
 # =========================
 
 data["累計距離"] = cumulative
@@ -185,19 +195,34 @@ data["GH"] = gh_values
 # セルの色
 # =========================
 
-blue_style = JsCode("""
+# 入力セル → 水色
+
+input_style = JsCode("""
 function(params) {
     return {
-        'backgroundColor': '#a7ddf5'
+        'backgroundColor': '#d9eef7'
     };
 }
 """)
 
 
-yellow_style = JsCode("""
+# 自動計算セル → 薄い黄色
+
+calculation_style = JsCode("""
 function(params) {
     return {
-        'backgroundColor': '#ffff00'
+        'backgroundColor': '#fff4cc'
+    };
+}
+""")
+
+
+# 累計距離 → 薄いグレー
+
+distance_style = JsCode("""
+function(params) {
+    return {
+        'backgroundColor': '#eeeeee'
     };
 }
 """)
@@ -211,6 +236,7 @@ gb = GridOptionsBuilder.from_dataframe(data)
 
 
 # 基本設定
+
 gb.configure_default_column(
     editable=True,
     resizable=True,
@@ -218,76 +244,112 @@ gb.configure_default_column(
 )
 
 
+# =========================
 # 測点
+# =========================
+
 gb.configure_column(
     "測点",
+    headerName="測点",
     editable=True,
     width=120
 )
 
 
+# =========================
 # 距離
+# =========================
+
 gb.configure_column(
     "距離",
+    headerName="距離【入力】",
     editable=True,
-    width=110
+    width=130
 )
 
 
+# =========================
 # 累計距離
+# =========================
+
 gb.configure_column(
     "累計距離",
+    headerName="累計距離【自動計算】",
     editable=False,
-    width=120
+    width=170,
+    cellStyle=distance_style
 )
 
 
-# BS → 水色
+# =========================
+# BS
+# =========================
+
 gb.configure_column(
     "BS",
+    headerName="BS【入力】",
     editable=True,
-    width=110,
-    cellStyle=blue_style
+    width=140,
+    cellStyle=input_style
 )
 
 
-# IH → 黄色
+# =========================
+# IH
+# =========================
+
 gb.configure_column(
     "IH",
+    headerName="IH【自動計算】",
     editable=False,
-    width=110,
-    cellStyle=yellow_style
+    width=170,
+    cellStyle=calculation_style
 )
 
 
-# TP → 水色
+# =========================
+# TP
+# =========================
+
 gb.configure_column(
     "TP",
+    headerName="TP【入力】",
     editable=True,
-    width=110,
-    cellStyle=blue_style
+    width=140,
+    cellStyle=input_style
 )
 
 
-# IP → 水色
+# =========================
+# IP
+# =========================
+
 gb.configure_column(
     "IP",
+    headerName="IP【入力】",
     editable=True,
-    width=110,
-    cellStyle=blue_style
+    width=140,
+    cellStyle=input_style
 )
 
 
-# GH → 黄色
+# =========================
+# GH
+# =========================
+
 gb.configure_column(
     "GH",
+    headerName="GH【自動計算】",
     editable=False,
-    width=110,
-    cellStyle=yellow_style
+    width=170,
+    cellStyle=calculation_style
 )
 
 
-# 行追加・削除
+# =========================
+# 表の設定
+# =========================
+
 gb.configure_grid_options(
     stopEditingWhenCellsLoseFocus=True
 )
@@ -297,7 +359,7 @@ grid_options = gb.build()
 
 
 # =========================
-# 表を表示
+# 表示
 # =========================
 
 grid_return = AgGrid(
@@ -313,7 +375,9 @@ grid_return = AgGrid(
 # 編集されたデータを取得
 # =========================
 
-edited = pd.DataFrame(grid_return["data"])
+edited = pd.DataFrame(
+    grid_return["data"]
+)
 
 
 # 数値列を数値に変換
@@ -397,7 +461,7 @@ if st.button("Excelに保存"):
 
         ws.column_dimensions[
             column[0].column_letter
-        ].width = 12
+        ].width = 15
 
 
     wb.save(output)
