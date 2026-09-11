@@ -86,7 +86,7 @@ st.markdown("""
 
 🟦 水色：入力する項目  
 🟨 黄色：自動計算される項目  
-⬜ 灰色：自動計算（累計距離）
+⬜ 灰色：累計距離（自動計算）
 """)
 
 
@@ -103,7 +103,7 @@ base_gh = st.number_input(
 
 
 # =========================================================
-# セッション状態の初期化
+# 使用する列
 # =========================================================
 
 editable_columns = [
@@ -122,6 +122,10 @@ numeric_columns = [
 ]
 
 
+# =========================================================
+# セッション状態
+# =========================================================
+
 if "data" not in st.session_state:
 
     st.session_state.data = pd.DataFrame({
@@ -135,11 +139,12 @@ if "data" not in st.session_state:
 
 
 if "grid_version" not in st.session_state:
+
     st.session_state.grid_version = 0
 
 
 # =========================================================
-# データを整える関数
+# 入力データを整理する関数
 # =========================================================
 
 def normalize_input_data(df):
@@ -148,11 +153,16 @@ def normalize_input_data(df):
 
     # 必要な列がなければ追加
     for col in editable_columns:
+
         if col not in result.columns:
             result[col] = None
 
+
+    # 行IDがなければ作成
     if "_row_id" not in result.columns:
+
         result["_row_id"] = range(len(result))
+
 
     # 測点
     result["測点"] = (
@@ -161,12 +171,15 @@ def normalize_input_data(df):
         .astype(str)
     )
 
+
     # 数値項目
     for col in numeric_columns:
+
         result[col] = pd.to_numeric(
             result[col],
             errors="coerce"
         )
+
 
     return result[
         ["_row_id"] + editable_columns
@@ -188,7 +201,7 @@ def data_signature(df):
 
 
 # =========================================================
-# 行追加
+# 行追加ボタン
 # =========================================================
 
 if st.button("＋ 行を追加"):
@@ -197,10 +210,18 @@ if st.button("＋ 行を追加"):
         st.session_state.data
     )
 
+
+    # 新しい行ID
     if len(data) > 0:
-        new_id = int(data["_row_id"].max()) + 1
+
+        new_id = int(
+            data["_row_id"].max()
+        ) + 1
+
     else:
+
         new_id = 0
+
 
     new_row = pd.DataFrame({
         "_row_id": [new_id],
@@ -211,12 +232,14 @@ if st.button("＋ 行を追加"):
         "IP": [None]
     })
 
+
     st.session_state.data = pd.concat(
         [data, new_row],
         ignore_index=True
     )
 
-    # AgGridを新しく読み直す
+
+    # AgGridを新しく読み込む
     st.session_state.grid_version += 1
 
     st.rerun()
@@ -232,19 +255,23 @@ input_data = normalize_input_data(
 
 
 # =========================================================
-# 表示用データの作成
+# 累計距離を計算
 # =========================================================
 
 cumulative = []
 
 total_distance = 0.0
 
+
 for distance in input_data["距離"]:
 
     if pd.notna(distance):
 
         total_distance += float(distance)
-        cumulative.append(total_distance)
+
+        cumulative.append(
+            total_distance
+        )
 
     else:
 
@@ -252,7 +279,7 @@ for distance in input_data["距離"]:
 
 
 # =========================================================
-# IH・GHの計算
+# IH・GHを計算
 # =========================================================
 
 ih_values = []
@@ -270,40 +297,60 @@ for i, (bs, tp, ip) in enumerate(
     )
 ):
 
-    # ---------------------------------------------
+    # -----------------------------------------------------
     # IH
-    # ---------------------------------------------
+    # -----------------------------------------------------
 
     if pd.notna(bs):
 
-        current_ih = current_gh + float(bs)
+        current_ih = (
+            current_gh + float(bs)
+        )
 
-        ih_values.append(current_ih)
+        ih_values.append(
+            current_ih
+        )
 
     else:
 
         ih_values.append(None)
 
 
-    # ---------------------------------------------
+    # -----------------------------------------------------
     # GH
-    # ---------------------------------------------
+    # -----------------------------------------------------
 
-    if current_ih is not None and pd.notna(tp):
+    if (
+        current_ih is not None
+        and pd.notna(tp)
+    ):
 
-        current_gh = current_ih - float(tp)
+        current_gh = (
+            current_ih - float(tp)
+        )
 
-        gh_values.append(current_gh)
+        gh_values.append(
+            current_gh
+        )
 
-    elif current_ih is not None and pd.notna(ip):
+    elif (
+        current_ih is not None
+        and pd.notna(ip)
+    ):
 
-        current_gh = current_ih - float(ip)
+        current_gh = (
+            current_ih - float(ip)
+        )
 
-        gh_values.append(current_gh)
+        gh_values.append(
+            current_gh
+        )
 
     elif i == 0:
 
-        gh_values.append(current_gh)
+        gh_values.append(
+            current_gh
+        )
 
     else:
 
@@ -311,7 +358,7 @@ for i, (bs, tp, ip) in enumerate(
 
 
 # =========================================================
-# 表示用テーブル
+# 表示用データ
 # =========================================================
 
 result = input_data.copy()
@@ -321,7 +368,7 @@ result["IH"] = ih_values
 result["GH"] = gh_values
 
 
-# 表示順をExcelのようにする
+# 列の順番
 result = result[
     [
         "_row_id",
@@ -341,7 +388,9 @@ result = result[
 # AgGrid設定
 # =========================================================
 
-gb = GridOptionsBuilder.from_dataframe(result)
+gb = GridOptionsBuilder.from_dataframe(
+    result
+)
 
 
 # ---------------------------------------------------------
@@ -374,12 +423,14 @@ gb.configure_column(
     editable=True
 )
 
+
 gb.configure_column(
     "距離",
     header_name="距離【入力】",
     editable=True,
     type=["numericColumn"]
 )
+
 
 gb.configure_column(
     "BS",
@@ -388,12 +439,14 @@ gb.configure_column(
     type=["numericColumn"]
 )
 
+
 gb.configure_column(
     "TP",
     header_name="TP【入力】",
     editable=True,
     type=["numericColumn"]
 )
+
 
 gb.configure_column(
     "IP",
@@ -414,12 +467,14 @@ gb.configure_column(
     type=["numericColumn"]
 )
 
+
 gb.configure_column(
     "IH",
     header_name="IH【自動計算】",
     editable=False,
     type=["numericColumn"]
 )
+
 
 gb.configure_column(
     "GH",
@@ -460,7 +515,10 @@ function(params) {
 """)
 
 
-# 入力セル
+# ---------------------------------------------------------
+# 水色：入力
+# ---------------------------------------------------------
+
 for column in [
     "距離",
     "BS",
@@ -474,7 +532,10 @@ for column in [
     )
 
 
-# 自動計算セル
+# ---------------------------------------------------------
+# 黄色：自動計算
+# ---------------------------------------------------------
+
 for column in [
     "IH",
     "GH"
@@ -486,7 +547,10 @@ for column in [
     )
 
 
-# 累計距離
+# ---------------------------------------------------------
+# 灰色：累計距離
+# ---------------------------------------------------------
+
 gb.configure_column(
     "累計距離",
     cellStyle=distance_cell_style
@@ -501,12 +565,15 @@ grid_options = gb.build()
 # =========================================================
 
 grid_return = AgGrid(
+
     result,
+
     gridOptions=grid_options,
 
-    # ★重要
-    # 行追加・削除時だけGridを新しくする
-    key=f"survey_grid_{st.session_state.grid_version}",
+    key=(
+        f"survey_grid_"
+        f"{st.session_state.grid_version}"
+    ),
 
     height=500,
 
@@ -525,53 +592,109 @@ returned_data = grid_return.get("data")
 
 if returned_data is not None:
 
-    returned_df = pd.DataFrame(returned_data)
+    returned_df = pd.DataFrame(
+        returned_data
+    )
 
+
+    # 入力データだけを取り出す
     returned_inputs = normalize_input_data(
         returned_df
     )
 
 
     # =====================================================
-    # 選択された行
+    # 選択された行を取得
     # =====================================================
 
     selected_rows = grid_return.get(
-        "selected_rows",
-        []
+        "selected_rows"
     )
 
 
     selected_ids = []
 
-    for row in selected_rows:
 
-        if "_row_id" in row:
+    # -----------------------------------------------------
+    # selected_rowsがリストの場合
+    # -----------------------------------------------------
 
-            try:
-                selected_ids.append(
-                    int(row["_row_id"])
-                )
-            except:
-                pass
+    if isinstance(
+        selected_rows,
+        list
+    ):
+
+        for row in selected_rows:
+
+            if (
+                isinstance(row, dict)
+                and "_row_id" in row
+            ):
+
+                try:
+
+                    selected_ids.append(
+                        int(row["_row_id"])
+                    )
+
+                except (
+                    ValueError,
+                    TypeError
+                ):
+
+                    pass
+
+
+    # -----------------------------------------------------
+    # selected_rowsがDataFrameの場合
+    # -----------------------------------------------------
+
+    elif isinstance(
+        selected_rows,
+        pd.DataFrame
+    ):
+
+        if "_row_id" in selected_rows.columns:
+
+            for row_id in selected_rows[
+                "_row_id"
+            ].tolist():
+
+                try:
+
+                    selected_ids.append(
+                        int(row_id)
+                    )
+
+                except (
+                    ValueError,
+                    TypeError
+                ):
+
+                    pass
 
 
     # =====================================================
-    # 行削除
+    # 選択行の削除
     # =====================================================
 
     if selected_ids:
 
-        if st.button("− 選択行を削除"):
+        if st.button(
+            "− 選択行を削除"
+        ):
 
-            # AgGridから返ってきた最新の入力内容を使う
             new_data = returned_inputs[
-                ~returned_inputs["_row_id"].isin(
-                    selected_ids
-                )
-            ].reset_index(drop=True)
+                ~returned_inputs[
+                    "_row_id"
+                ].isin(selected_ids)
+            ].reset_index(
+                drop=True
+            )
+
 
             st.session_state.data = new_data
+
 
             # Gridを新しくする
             st.session_state.grid_version += 1
@@ -580,8 +703,7 @@ if returned_data is not None:
 
 
     # =====================================================
-    # ★重要
-    # 入力内容が変わったら即座に保存
+    # ★ 入力内容の保存
     # =====================================================
 
     old_signature = data_signature(
@@ -593,13 +715,14 @@ if returned_data is not None:
     )
 
 
+    # 入力が変更されていたら保存
     if old_signature != new_signature:
 
-        # ★計算結果ではなく
-        # 入力データだけを保存する
-        st.session_state.data = returned_inputs
+        st.session_state.data = (
+            returned_inputs
+        )
 
-        # 保存後にもう一度画面を描画
+        # 保存したデータを使って再描画
         st.rerun()
 
 
@@ -609,28 +732,45 @@ if returned_data is not None:
 
 st.markdown("---")
 
+
 if st.button("Excelに保存"):
 
-    # 最新の入力データから再計算
+
+    # 最新の入力データ
     input_data = normalize_input_data(
         st.session_state.data
     )
+
+
+    # -----------------------------------------------------
+    # 累計距離
+    # -----------------------------------------------------
 
     cumulative = []
 
     total_distance = 0.0
 
+
     for distance in input_data["距離"]:
 
         if pd.notna(distance):
 
-            total_distance += float(distance)
-            cumulative.append(total_distance)
+            total_distance += float(
+                distance
+            )
+
+            cumulative.append(
+                total_distance
+            )
 
         else:
 
             cumulative.append(None)
 
+
+    # -----------------------------------------------------
+    # IH・GH
+    # -----------------------------------------------------
 
     ih_values = []
     gh_values = []
@@ -647,34 +787,64 @@ if st.button("Excelに保存"):
         )
     ):
 
+
+        # IH
         if pd.notna(bs):
 
-            current_ih = current_gh + float(bs)
-            ih_values.append(current_ih)
+            current_ih = (
+                current_gh + float(bs)
+            )
+
+            ih_values.append(
+                current_ih
+            )
 
         else:
 
             ih_values.append(None)
 
 
-        if current_ih is not None and pd.notna(tp):
+        # GH
+        if (
+            current_ih is not None
+            and pd.notna(tp)
+        ):
 
-            current_gh = current_ih - float(tp)
-            gh_values.append(current_gh)
+            current_gh = (
+                current_ih - float(tp)
+            )
 
-        elif current_ih is not None and pd.notna(ip):
+            gh_values.append(
+                current_gh
+            )
 
-            current_gh = current_ih - float(ip)
-            gh_values.append(current_gh)
+        elif (
+            current_ih is not None
+            and pd.notna(ip)
+        ):
+
+            current_gh = (
+                current_ih - float(ip)
+            )
+
+            gh_values.append(
+                current_gh
+            )
 
         elif i == 0:
 
-            gh_values.append(current_gh)
+            gh_values.append(
+                current_gh
+            )
 
         else:
 
             gh_values.append(None)
 
+
+    # -----------------------------------------------------
+    # Excel用データ
+    # -----------------------------------------------------
 
     excel_result = input_data.copy()
 
@@ -683,7 +853,6 @@ if st.button("Excelに保存"):
     excel_result["GH"] = gh_values
 
 
-    # _row_idはExcelには出さない
     excel_result = excel_result[
         [
             "測点",
@@ -698,9 +867,9 @@ if st.button("Excelに保存"):
     ]
 
 
-    # =====================================================
+    # -----------------------------------------------------
     # Excel作成
-    # =====================================================
+    # -----------------------------------------------------
 
     output = BytesIO()
 
@@ -726,7 +895,9 @@ if st.button("Excelに保存"):
 
     # データ
     for row_num, row in enumerate(
-        excel_result.itertuples(index=False),
+        excel_result.itertuples(
+            index=False
+        ),
         2
     ):
 
@@ -744,7 +915,10 @@ if st.button("Excelに保存"):
                 )
 
 
+    # -----------------------------------------------------
     # 列幅
+    # -----------------------------------------------------
+
     for column in ws.columns:
 
         ws.column_dimensions[
@@ -752,21 +926,28 @@ if st.button("Excelに保存"):
         ].width = 12
 
 
+    # -----------------------------------------------------
+    # 保存
+    # -----------------------------------------------------
+
     wb.save(output)
 
     output.seek(0)
 
 
-    # =====================================================
+    # -----------------------------------------------------
     # ダウンロード
-    # =====================================================
+    # -----------------------------------------------------
 
     st.download_button(
+
         label="Excelファイルをダウンロード",
 
         data=output,
 
-        file_name="水準測量_器高式計算.xlsx",
+        file_name=(
+            "水準測量_器高式計算.xlsx"
+        ),
 
         mime=(
             "application/vnd.openxmlformats-officedocument."
