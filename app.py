@@ -34,17 +34,62 @@ h1 {
     color: #1e3a5f;
 }
 
-div[data-testid="stNumberInput"] {
-    background-color: #ffffff;
-    padding: 10px;
-    border-radius: 8px;
+h2, h3 {
+    color: #1e3a5f;
 }
+
+
+/* 説明ボックス */
+
+.info-box {
+    background-color: #ffffff;
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin-bottom: 15px;
+    border: 1px solid #d6dee8;
+}
+
+
+/* 入力の説明 */
+
+.input-box {
+    background-color: #d9eef7;
+    border-radius: 8px;
+    padding: 10px 15px;
+    margin-bottom: 8px;
+}
+
+
+/* 自動計算の説明 */
+
+.calc-box {
+    background-color: #fff4cc;
+    border-radius: 8px;
+    padding: 10px 15px;
+    margin-bottom: 8px;
+}
+
+
+/* 基準GH */
+
+.gh-box {
+    background-color: #ffffff;
+    border-radius: 10px;
+    padding: 12px 15px;
+    margin-top: 10px;
+    margin-bottom: 15px;
+    border: 1px solid #d6dee8;
+}
+
+
+/* ボタン */
 
 .stButton > button {
     background-color: #2f6690;
     color: white;
     border-radius: 6px;
     border: none;
+    padding: 8px 20px;
 }
 
 .stButton > button:hover {
@@ -63,8 +108,65 @@ st.title("測量自動計算")
 
 
 # =========================
+# 使い方
+# =========================
+
+st.markdown("""
+<div class="info-box">
+
+<h3>📖 使い方</h3>
+
+<p>
+このアプリでは、水準測量の計算を自動で行います。
+</p>
+
+<p>
+<b>①</b> 基準GHを入力します。<br>
+<b>②</b> 水色のセルに測定した数値を入力します。<br>
+<b>③</b> 黄色のセルは自動で計算されます。<br>
+<b>④</b> 計算結果をExcelファイルとして保存できます。
+</p>
+
+</div>
+""", unsafe_allow_html=True)
+
+
+# =========================
+# 色の凡例
+# =========================
+
+st.markdown("""
+<div class="info-box">
+
+<h3>🎨 入力・計算項目</h3>
+
+<div class="input-box">
+🟦 <b>水色：入力する項目</b><br>
+BS・TP・IPなど、測量して得られた数値を入力します。
+</div>
+
+<div class="calc-box">
+🟨 <b>黄色：自動計算される項目</b><br>
+IH・GHなど、入力した数値をもとに自動で計算されます。
+</div>
+
+</div>
+""", unsafe_allow_html=True)
+
+
+# =========================
 # 基準GH
 # =========================
+
+st.markdown("""
+<div class="gh-box">
+
+<b>基準GHについて</b><br>
+測量開始地点の既知の地盤高を入力してください。
+
+</div>
+""", unsafe_allow_html=True)
+
 
 base_gh = st.number_input(
     "基準GH",
@@ -235,8 +337,6 @@ function(params) {
 gb = GridOptionsBuilder.from_dataframe(data)
 
 
-# 基本設定
-
 gb.configure_default_column(
     editable=True,
     resizable=True,
@@ -250,9 +350,9 @@ gb.configure_default_column(
 
 gb.configure_column(
     "測点",
-    headerName="測点",
+    headerName="測点【入力】",
     editable=True,
-    width=120
+    width=140
 )
 
 
@@ -264,7 +364,7 @@ gb.configure_column(
     "距離",
     headerName="距離【入力】",
     editable=True,
-    width=130
+    width=140
 )
 
 
@@ -276,7 +376,7 @@ gb.configure_column(
     "累計距離",
     headerName="累計距離【自動計算】",
     editable=False,
-    width=170,
+    width=190,
     cellStyle=distance_style
 )
 
@@ -302,7 +402,7 @@ gb.configure_column(
     "IH",
     headerName="IH【自動計算】",
     editable=False,
-    width=170,
+    width=190,
     cellStyle=calculation_style
 )
 
@@ -341,7 +441,7 @@ gb.configure_column(
     "GH",
     headerName="GH【自動計算】",
     editable=False,
-    width=170,
+    width=190,
     cellStyle=calculation_style
 )
 
@@ -359,8 +459,10 @@ grid_options = gb.build()
 
 
 # =========================
-# 表示
+# 測量野帳
 # =========================
+
+st.markdown("### 📋 測量野帳")
 
 grid_return = AgGrid(
     data,
@@ -380,7 +482,9 @@ edited = pd.DataFrame(
 )
 
 
+# =========================
 # 数値列を数値に変換
+# =========================
 
 for column in [
     "距離",
@@ -408,6 +512,8 @@ st.session_state.data = edited
 # =========================
 # Excel保存
 # =========================
+
+st.markdown("### 💾 データ保存")
 
 if st.button("Excelに保存"):
 
@@ -463,6 +569,8 @@ if st.button("Excelに保存"):
             column[0].column_letter
         ].width = 15
 
+
+    # Excel作成
 
     wb.save(output)
 
