@@ -109,7 +109,9 @@ st.markdown("""
 <p>① 基準GHを入力します。</p>
 <p>② 水色のセルに測定値を入力します。</p>
 <p>③ 黄色のセルは器高式によって自動計算されます。</p>
-<p>④ 必要に応じて「Excelに保存」を押してください。</p>
+<p>④ 行が足りない場合は「＋ 行を追加」を押します。</p>
+<p>⑤ 不要な行は選択して「− 選択行を削除」を押します。</p>
+<p>⑥ 必要に応じて「Excelに保存」を押してください。</p>
 
 </div>
 """, unsafe_allow_html=True)
@@ -174,6 +176,34 @@ if "data" not in st.session_state:
         "IP": [None] * 10,
         "GH": [None] * 10
     })
+
+
+# =========================
+# 行追加
+# =========================
+col1, col2 = st.columns(2)
+
+with col1:
+
+    if st.button("＋ 行を追加"):
+
+        new_row = pd.DataFrame({
+            "測点": [""],
+            "距離": [None],
+            "累計距離": [None],
+            "BS": [None],
+            "IH": [None],
+            "TP": [None],
+            "IP": [None],
+            "GH": [None]
+        })
+
+        st.session_state.data = pd.concat(
+            [st.session_state.data, new_row],
+            ignore_index=True
+        )
+
+        st.rerun()
 
 
 # =========================
@@ -272,6 +302,10 @@ result["GH"] = gh_values
 # =========================
 st.subheader("📋 測量野帳")
 
+st.caption(
+    "行を選択すると削除できます。"
+)
+
 
 # =========================
 # セルの色
@@ -311,6 +345,13 @@ function(params) {
 # AgGrid設定
 # =========================
 gb = GridOptionsBuilder.from_dataframe(result)
+
+
+# 行選択を有効化
+gb.configure_selection(
+    selection_mode="multiple",
+    use_checkbox=True
+)
 
 
 # 測点
@@ -428,6 +469,41 @@ for column in [
         edited[column],
         errors="coerce"
     )
+
+
+# =========================
+# 選択行を削除
+# =========================
+selected_rows = grid_return.get(
+    "selected_rows",
+    []
+)
+
+if selected_rows:
+
+    if st.button("− 選択行を削除"):
+
+        selected_indexes = [
+            row["_selectedRowNodeInfo"]["nodeRowIndex"]
+            if "_selectedRowNodeInfo" in row
+            else None
+            for row in selected_rows
+        ]
+
+        selected_indexes = [
+            i for i in selected_indexes
+            if i is not None
+        ]
+
+        if selected_indexes:
+
+            edited = edited.drop(
+                index=selected_indexes
+            ).reset_index(drop=True)
+
+            st.session_state.data = edited
+
+            st.rerun()
 
 
 # セッションに保存
