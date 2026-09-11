@@ -12,20 +12,17 @@ from st_aggrid import JsCode
 # =========================
 # ページ設定
 # =========================
-
 st.set_page_config(
-    page_title="測量自動計算",
+    page_title="水準測量・器高式計算アプリ",
     layout="wide"
 )
 
 
 # =========================
-# 全体デザイン
+# デザイン
 # =========================
-
 st.markdown("""
 <style>
-
 .stApp {
     background-color: #f1f5f9;
 }
@@ -34,68 +31,59 @@ h1 {
     color: #1e3a5f;
 }
 
-h2, h3 {
+h2 {
     color: #1e3a5f;
 }
 
-
-/* 説明ボックス */
-
-.info-box {
+div[data-testid="stNumberInput"] {
     background-color: #ffffff;
-    border-radius: 10px;
-    padding: 18px 20px;
-    margin-bottom: 15px;
-    border: 1px solid #d6dee8;
-}
-
-
-/* 入力の説明 */
-
-.input-box {
-    background-color: #d9eef7;
+    padding: 10px;
     border-radius: 8px;
-    padding: 10px 15px;
-    margin-bottom: 8px;
 }
-
-
-/* 自動計算の説明 */
-
-.calc-box {
-    background-color: #fff4cc;
-    border-radius: 8px;
-    padding: 10px 15px;
-    margin-bottom: 8px;
-}
-
-
-/* 基準GH */
-
-.gh-box {
-    background-color: #ffffff;
-    border-radius: 10px;
-    padding: 12px 15px;
-    margin-top: 10px;
-    margin-bottom: 15px;
-    border: 1px solid #d6dee8;
-}
-
-
-/* ボタン */
 
 .stButton > button {
     background-color: #2f6690;
     color: white;
     border-radius: 6px;
     border: none;
-    padding: 8px 20px;
 }
 
 .stButton > button:hover {
     background-color: #245273;
 }
 
+.info-box {
+    background-color: #ffffff;
+    padding: 18px;
+    border-radius: 10px;
+    border-left: 5px solid #2f6690;
+    margin-bottom: 15px;
+}
+
+.legend-box {
+    background-color: #ffffff;
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 15px;
+}
+
+.input-color {
+    background-color: #d9eef7;
+    padding: 5px 12px;
+    border-radius: 5px;
+}
+
+.calc-color {
+    background-color: #fff4cc;
+    padding: 5px 12px;
+    border-radius: 5px;
+}
+
+.other-color {
+    background-color: #eeeeee;
+    padding: 5px 12px;
+    border-radius: 5px;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -103,52 +91,52 @@ h2, h3 {
 # =========================
 # タイトル
 # =========================
+st.title("水準測量・器高式計算アプリ")
 
-st.title("測量自動計算")
+st.write(
+    "水準測量で使用する器高式の計算を自動化するアプリです。"
+)
 
 
 # =========================
 # 使い方
 # =========================
-
 st.markdown("""
 <div class="info-box">
 
 <h3>📖 使い方</h3>
 
-<p>
-このアプリでは、水準測量の計算を自動で行います。
-</p>
-
-<p>
-<b>①</b> 基準GHを入力します。<br>
-<b>②</b> 水色のセルに測定した数値を入力します。<br>
-<b>③</b> 黄色のセルは自動で計算されます。<br>
-<b>④</b> 計算結果をExcelファイルとして保存できます。
-</p>
+<p>① 基準GHを入力します。</p>
+<p>② 水色のセルに測定値を入力します。</p>
+<p>③ 黄色のセルは器高式によって自動計算されます。</p>
+<p>④ 必要に応じて「Excelに保存」を押してください。</p>
 
 </div>
 """, unsafe_allow_html=True)
 
 
 # =========================
-# 色の凡例
+# 色の説明
 # =========================
-
 st.markdown("""
-<div class="info-box">
+<div class="legend-box">
 
-<h3>🎨 入力・計算項目</h3>
+<h3>🎨 セルの色について</h3>
 
-<div class="input-box">
-🟦 <b>水色：入力する項目</b><br>
-BS・TP・IPなど、測量して得られた数値を入力します。
-</div>
+<p>
+<span class="input-color">🟦 水色</span>
+＝ 使用者が入力する項目
+</p>
 
-<div class="calc-box">
-🟨 <b>黄色：自動計算される項目</b><br>
-IH・GHなど、入力した数値をもとに自動で計算されます。
-</div>
+<p>
+<span class="calc-color">🟨 黄色</span>
+＝ 自動で計算される項目
+</p>
+
+<p>
+<span class="other-color">⬜ 灰色</span>
+＝ 累計距離などの自動計算項目
+</p>
 
 </div>
 """, unsafe_allow_html=True)
@@ -157,16 +145,11 @@ IH・GHなど、入力した数値をもとに自動で計算されます。
 # =========================
 # 基準GH
 # =========================
+st.subheader("基準GH")
 
-st.markdown("""
-<div class="gh-box">
-
-<b>基準GHについて</b><br>
-測量開始地点の既知の地盤高を入力してください。
-
-</div>
-""", unsafe_allow_html=True)
-
+st.caption(
+    "測量を開始する地点の既知の地盤高（GH）を入力してください。"
+)
 
 base_gh = st.number_input(
     "基準GH",
@@ -179,7 +162,6 @@ base_gh = st.number_input(
 # =========================
 # 初期データ
 # =========================
-
 if "data" not in st.session_state:
 
     st.session_state.data = pd.DataFrame({
@@ -190,42 +172,38 @@ if "data" not in st.session_state:
         "IH": [None] * 10,
         "TP": [None] * 10,
         "IP": [None] * 10,
-        "GH": [None] * 10,
+        "GH": [None] * 10
     })
 
 
+# =========================
+# 計算前データ
+# =========================
 data = st.session_state.data.copy()
 
 
 # =========================
-# 累計距離を計算
+# 累計距離の計算
 # =========================
-
-total = 0.0
 cumulative = []
+
+total_distance = 0.0
 
 for distance in data["距離"]:
 
-    if pd.isna(distance):
+    if pd.notna(distance):
 
-        cumulative.append(None)
+        total_distance += float(distance)
+        cumulative.append(total_distance)
 
     else:
 
-        try:
-
-            total += float(distance)
-            cumulative.append(total)
-
-        except (ValueError, TypeError):
-
-            cumulative.append(None)
+        cumulative.append(None)
 
 
 # =========================
-# IH・GHを計算
+# IH・GHの計算
 # =========================
-
 ih_values = []
 gh_values = []
 
@@ -241,8 +219,9 @@ for i, (bs, tp, ip) in enumerate(
     )
 ):
 
-    # BSがあればIHを更新
-
+    # -------------------------
+    # IH
+    # -------------------------
     if pd.notna(bs):
 
         current_ih = current_gh + float(bs)
@@ -254,16 +233,14 @@ for i, (bs, tp, ip) in enumerate(
         ih_values.append(None)
 
 
-    # TPがあればGHを更新
-
+    # -------------------------
+    # GH
+    # -------------------------
     if current_ih is not None and pd.notna(tp):
 
         current_gh = current_ih - float(tp)
 
         gh_values.append(current_gh)
-
-
-    # IPがあればGHを更新
 
     elif current_ih is not None and pd.notna(ip):
 
@@ -271,13 +248,9 @@ for i, (bs, tp, ip) in enumerate(
 
         gh_values.append(current_gh)
 
-
-    # 1行目は基準GH
-
     elif i == 0:
 
         gh_values.append(current_gh)
-
 
     else:
 
@@ -285,20 +258,26 @@ for i, (bs, tp, ip) in enumerate(
 
 
 # =========================
-# 計算結果を反映
+# 計算結果
 # =========================
+result = data.copy()
 
-data["累計距離"] = cumulative
-data["IH"] = ih_values
-data["GH"] = gh_values
+result["累計距離"] = cumulative
+result["IH"] = ih_values
+result["GH"] = gh_values
+
+
+# =========================
+# 測量野帳
+# =========================
+st.subheader("📋 測量野帳")
 
 
 # =========================
 # セルの色
 # =========================
 
-# 入力セル → 水色
-
+# 入力セル（水色）
 input_style = JsCode("""
 function(params) {
     return {
@@ -308,8 +287,7 @@ function(params) {
 """)
 
 
-# 自動計算セル → 薄い黄色
-
+# 自動計算セル（黄色）
 calculation_style = JsCode("""
 function(params) {
     return {
@@ -319,8 +297,7 @@ function(params) {
 """)
 
 
-# 累計距離 → 薄いグレー
-
+# 累計距離（灰色）
 distance_style = JsCode("""
 function(params) {
     return {
@@ -331,23 +308,12 @@ function(params) {
 
 
 # =========================
-# 表の設定
+# AgGrid設定
 # =========================
-
-gb = GridOptionsBuilder.from_dataframe(data)
-
-
-gb.configure_default_column(
-    editable=True,
-    resizable=True,
-    sortable=False
-)
+gb = GridOptionsBuilder.from_dataframe(result)
 
 
-# =========================
 # 測点
-# =========================
-
 gb.configure_column(
     "測点",
     headerName="測点【入力】",
@@ -356,10 +322,7 @@ gb.configure_column(
 )
 
 
-# =========================
 # 距離
-# =========================
-
 gb.configure_column(
     "距離",
     headerName="距離【入力】",
@@ -368,23 +331,17 @@ gb.configure_column(
 )
 
 
-# =========================
 # 累計距離
-# =========================
-
 gb.configure_column(
     "累計距離",
     headerName="累計距離【自動計算】",
     editable=False,
-    width=190,
+    width=180,
     cellStyle=distance_style
 )
 
 
-# =========================
 # BS
-# =========================
-
 gb.configure_column(
     "BS",
     headerName="BS【入力】",
@@ -394,23 +351,17 @@ gb.configure_column(
 )
 
 
-# =========================
 # IH
-# =========================
-
 gb.configure_column(
     "IH",
     headerName="IH【自動計算】",
     editable=False,
-    width=190,
+    width=180,
     cellStyle=calculation_style
 )
 
 
-# =========================
 # TP
-# =========================
-
 gb.configure_column(
     "TP",
     headerName="TP【入力】",
@@ -420,10 +371,7 @@ gb.configure_column(
 )
 
 
-# =========================
 # IP
-# =========================
-
 gb.configure_column(
     "IP",
     headerName="IP【入力】",
@@ -433,39 +381,23 @@ gb.configure_column(
 )
 
 
-# =========================
 # GH
-# =========================
-
 gb.configure_column(
     "GH",
     headerName="GH【自動計算】",
     editable=False,
-    width=190,
+    width=180,
     cellStyle=calculation_style
 )
 
 
 # =========================
-# 表の設定
+# Grid表示
 # =========================
-
-gb.configure_grid_options(
-    stopEditingWhenCellsLoseFocus=True
-)
-
-
 grid_options = gb.build()
 
-
-# =========================
-# 測量野帳
-# =========================
-
-st.markdown("### 📋 測量野帳")
-
 grid_return = AgGrid(
-    data,
+    result,
     gridOptions=grid_options,
     height=500,
     allow_unsafe_jscode=True,
@@ -474,18 +406,14 @@ grid_return = AgGrid(
 
 
 # =========================
-# 編集されたデータを取得
+# 編集後データ
 # =========================
-
 edited = pd.DataFrame(
     grid_return["data"]
 )
 
 
-# =========================
-# 数値列を数値に変換
-# =========================
-
+# 数値列を数値化
 for column in [
     "距離",
     "累計距離",
@@ -502,18 +430,14 @@ for column in [
     )
 
 
-# =========================
-# データを保存
-# =========================
-
+# セッションに保存
 st.session_state.data = edited
 
 
 # =========================
 # Excel保存
 # =========================
-
-st.markdown("### 💾 データ保存")
+st.subheader("💾 データ保存")
 
 if st.button("Excelに保存"):
 
@@ -526,10 +450,11 @@ if st.button("Excelに保存"):
     ws.title = "測量野帳"
 
 
-    # 見出し
-
+    # -------------------------
+    # ヘッダー
+    # -------------------------
     for col_num, column_name in enumerate(
-        edited.columns,
+        result.columns,
         1
     ):
 
@@ -540,10 +465,11 @@ if st.button("Excelに保存"):
         )
 
 
+    # -------------------------
     # データ
-
+    # -------------------------
     for row_num, row in enumerate(
-        edited.itertuples(index=False),
+        result.itertuples(index=False),
         2
     ):
 
@@ -561,25 +487,30 @@ if st.button("Excelに保存"):
                 )
 
 
+    # -------------------------
     # 列幅
-
+    # -------------------------
     for column in ws.columns:
 
         ws.column_dimensions[
             column[0].column_letter
-        ].width = 15
+        ].width = 12
 
 
+    # -------------------------
     # Excel作成
-
+    # -------------------------
     wb.save(output)
 
     output.seek(0)
 
 
+    # -------------------------
+    # ダウンロード
+    # -------------------------
     st.download_button(
         label="Excelファイルをダウンロード",
         data=output,
-        file_name="測量野帳.xlsx",
+        file_name="水準測量_器高式計算.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
