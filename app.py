@@ -1,37 +1,32 @@
 import streamlit as st
 import pandas as pd
-
 from io import BytesIO
 from openpyxl import Workbook
-
-from st_aggrid import AgGrid
-from st_aggrid import GridOptionsBuilder
-from st_aggrid import JsCode
+from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
 
 
-# =========================
+# =========================================================
 # ページ設定
-# =========================
+# =========================================================
+
 st.set_page_config(
     page_title="水準測量・器高式計算アプリ",
     layout="wide"
 )
 
 
-# =========================
+# =========================================================
 # デザイン
-# =========================
+# =========================================================
+
 st.markdown("""
 <style>
+
 .stApp {
     background-color: #f1f5f9;
 }
 
 h1 {
-    color: #1e3a5f;
-}
-
-h2 {
     color: #1e3a5f;
 }
 
@@ -42,55 +37,18 @@ div[data-testid="stNumberInput"] {
 }
 
 .stButton > button {
-    background-color: #2f6690;
-    color: white;
     border-radius: 6px;
     border: none;
 }
 
-.stButton > button:hover {
-    background-color: #245273;
-}
-
-.info-box {
-    background-color: #ffffff;
-    padding: 18px;
-    border-radius: 10px;
-    border-left: 5px solid #2f6690;
-    margin-bottom: 15px;
-}
-
-.legend-box {
-    background-color: #ffffff;
-    padding: 15px;
-    border-radius: 10px;
-    margin-bottom: 15px;
-}
-
-.input-color {
-    background-color: #d9eef7;
-    padding: 5px 12px;
-    border-radius: 5px;
-}
-
-.calc-color {
-    background-color: #fff4cc;
-    padding: 5px 12px;
-    border-radius: 5px;
-}
-
-.other-color {
-    background-color: #eeeeee;
-    padding: 5px 12px;
-    border-radius: 5px;
-}
 </style>
 """, unsafe_allow_html=True)
 
 
-# =========================
+# =========================================================
 # タイトル
-# =========================
+# =========================================================
+
 st.title("水準測量・器高式計算アプリ")
 
 st.write(
@@ -98,60 +56,43 @@ st.write(
 )
 
 
-# =========================
+# =========================================================
 # 使い方
-# =========================
-st.markdown("""
-<div class="info-box">
+# =========================================================
 
-<h3>📖 使い方</h3>
+with st.expander("使い方", expanded=True):
 
-<p>① 基準GHを入力します。</p>
-<p>② 水色のセルに測定値を入力します。</p>
-<p>③ 黄色のセルは器高式によって自動計算されます。</p>
-<p>④ 行が足りない場合は「＋ 行を追加」を押します。</p>
-<p>⑤ 不要な行は選択して「− 選択行を削除」を押します。</p>
-<p>⑥ 必要に応じて「Excelに保存」を押してください。</p>
+    st.write("""
+① 基準GHを入力します。
 
-</div>
-""", unsafe_allow_html=True)
+② 水色のセルに測定値を入力します。
+
+③ 黄色のセルは器高式によって自動計算されます。
+
+④ 行が足りない場合は「＋ 行を追加」を押します。
+
+⑤ 不要な行はチェックして「− 選択行を削除」を押します。
+
+⑥ 必要に応じて「Excelに保存」からExcelファイルを保存できます。
+""")
 
 
-# =========================
+# =========================================================
 # 色の説明
-# =========================
+# =========================================================
+
 st.markdown("""
-<div class="legend-box">
+**セルの色**
 
-<h3>🎨 セルの色について</h3>
-
-<p>
-<span class="input-color">🟦 水色</span>
-＝ 使用者が入力する項目
-</p>
-
-<p>
-<span class="calc-color">🟨 黄色</span>
-＝ 自動で計算される項目
-</p>
-
-<p>
-<span class="other-color">⬜ 灰色</span>
-＝ 累計距離などの自動計算項目
-</p>
-
-</div>
-""", unsafe_allow_html=True)
+🟦 水色：入力する項目  
+🟨 黄色：自動計算される項目  
+⬜ 灰色：自動計算（累計距離）
+""")
 
 
-# =========================
+# =========================================================
 # 基準GH
-# =========================
-st.subheader("基準GH")
-
-st.caption(
-    "測量を開始する地点の既知の地盤高（GH）を入力してください。"
-)
+# =========================================================
 
 base_gh = st.number_input(
     "基準GH",
@@ -161,65 +102,144 @@ base_gh = st.number_input(
 )
 
 
-# =========================
-# 初期データ
-# =========================
+# =========================================================
+# セッション状態の初期化
+# =========================================================
+
+editable_columns = [
+    "測点",
+    "距離",
+    "BS",
+    "TP",
+    "IP"
+]
+
+numeric_columns = [
+    "距離",
+    "BS",
+    "TP",
+    "IP"
+]
+
+
 if "data" not in st.session_state:
 
     st.session_state.data = pd.DataFrame({
+        "_row_id": range(10),
         "測点": [""] * 10,
         "距離": [None] * 10,
-        "累計距離": [None] * 10,
         "BS": [None] * 10,
-        "IH": [None] * 10,
         "TP": [None] * 10,
-        "IP": [None] * 10,
-        "GH": [None] * 10
+        "IP": [None] * 10
     })
 
 
-# =========================
-# 行追加
-# =========================
-col1, col2 = st.columns(2)
+if "grid_version" not in st.session_state:
+    st.session_state.grid_version = 0
 
-with col1:
 
-    if st.button("＋ 行を追加"):
+# =========================================================
+# データを整える関数
+# =========================================================
 
-        new_row = pd.DataFrame({
-            "測点": [""],
-            "距離": [None],
-            "累計距離": [None],
-            "BS": [None],
-            "IH": [None],
-            "TP": [None],
-            "IP": [None],
-            "GH": [None]
-        })
+def normalize_input_data(df):
 
-        st.session_state.data = pd.concat(
-            [st.session_state.data, new_row],
-            ignore_index=True
+    result = df.copy()
+
+    # 必要な列がなければ追加
+    for col in editable_columns:
+        if col not in result.columns:
+            result[col] = None
+
+    if "_row_id" not in result.columns:
+        result["_row_id"] = range(len(result))
+
+    # 測点
+    result["測点"] = (
+        result["測点"]
+        .fillna("")
+        .astype(str)
+    )
+
+    # 数値項目
+    for col in numeric_columns:
+        result[col] = pd.to_numeric(
+            result[col],
+            errors="coerce"
         )
 
-        st.rerun()
+    return result[
+        ["_row_id"] + editable_columns
+    ].reset_index(drop=True)
 
 
-# =========================
-# 計算前データ
-# =========================
-data = st.session_state.data.copy()
+# =========================================================
+# データ比較用
+# =========================================================
+
+def data_signature(df):
+
+    normalized = normalize_input_data(df)
+
+    return normalized.to_json(
+        orient="records",
+        force_ascii=False
+    )
 
 
-# =========================
-# 累計距離の計算
-# =========================
+# =========================================================
+# 行追加
+# =========================================================
+
+if st.button("＋ 行を追加"):
+
+    data = normalize_input_data(
+        st.session_state.data
+    )
+
+    if len(data) > 0:
+        new_id = int(data["_row_id"].max()) + 1
+    else:
+        new_id = 0
+
+    new_row = pd.DataFrame({
+        "_row_id": [new_id],
+        "測点": [""],
+        "距離": [None],
+        "BS": [None],
+        "TP": [None],
+        "IP": [None]
+    })
+
+    st.session_state.data = pd.concat(
+        [data, new_row],
+        ignore_index=True
+    )
+
+    # AgGridを新しく読み直す
+    st.session_state.grid_version += 1
+
+    st.rerun()
+
+
+# =========================================================
+# 現在の入力データ
+# =========================================================
+
+input_data = normalize_input_data(
+    st.session_state.data
+)
+
+
+# =========================================================
+# 表示用データの作成
+# =========================================================
+
 cumulative = []
 
 total_distance = 0.0
 
-for distance in data["距離"]:
+for distance in input_data["距離"]:
 
     if pd.notna(distance):
 
@@ -231,9 +251,10 @@ for distance in data["距離"]:
         cumulative.append(None)
 
 
-# =========================
+# =========================================================
 # IH・GHの計算
-# =========================
+# =========================================================
+
 ih_values = []
 gh_values = []
 
@@ -243,15 +264,16 @@ current_ih = None
 
 for i, (bs, tp, ip) in enumerate(
     zip(
-        data["BS"],
-        data["TP"],
-        data["IP"]
+        input_data["BS"],
+        input_data["TP"],
+        input_data["IP"]
     )
 ):
 
-    # -------------------------
+    # ---------------------------------------------
     # IH
-    # -------------------------
+    # ---------------------------------------------
+
     if pd.notna(bs):
 
         current_ih = current_gh + float(bs)
@@ -263,9 +285,10 @@ for i, (bs, tp, ip) in enumerate(
         ih_values.append(None)
 
 
-    # -------------------------
+    # ---------------------------------------------
     # GH
-    # -------------------------
+    # ---------------------------------------------
+
     if current_ih is not None and pd.notna(tp):
 
         current_gh = current_ih - float(tp)
@@ -287,32 +310,130 @@ for i, (bs, tp, ip) in enumerate(
         gh_values.append(None)
 
 
-# =========================
-# 計算結果
-# =========================
-result = data.copy()
+# =========================================================
+# 表示用テーブル
+# =========================================================
+
+result = input_data.copy()
 
 result["累計距離"] = cumulative
 result["IH"] = ih_values
 result["GH"] = gh_values
 
 
-# =========================
-# 測量野帳
-# =========================
-st.subheader("📋 測量野帳")
+# 表示順をExcelのようにする
+result = result[
+    [
+        "_row_id",
+        "測点",
+        "距離",
+        "累計距離",
+        "BS",
+        "IH",
+        "TP",
+        "IP",
+        "GH"
+    ]
+]
 
-st.caption(
-    "行を選択すると削除できます。"
+
+# =========================================================
+# AgGrid設定
+# =========================================================
+
+gb = GridOptionsBuilder.from_dataframe(result)
+
+
+# ---------------------------------------------------------
+# 行選択
+# ---------------------------------------------------------
+
+gb.configure_selection(
+    selection_mode="multiple",
+    use_checkbox=True
 )
 
 
-# =========================
-# セルの色
-# =========================
+# ---------------------------------------------------------
+# 行IDを非表示
+# ---------------------------------------------------------
 
-# 入力セル（水色）
-input_style = JsCode("""
+gb.configure_column(
+    "_row_id",
+    hide=True
+)
+
+
+# ---------------------------------------------------------
+# 入力列
+# ---------------------------------------------------------
+
+gb.configure_column(
+    "測点",
+    header_name="測点",
+    editable=True
+)
+
+gb.configure_column(
+    "距離",
+    header_name="距離【入力】",
+    editable=True,
+    type=["numericColumn"]
+)
+
+gb.configure_column(
+    "BS",
+    header_name="BS【入力】",
+    editable=True,
+    type=["numericColumn"]
+)
+
+gb.configure_column(
+    "TP",
+    header_name="TP【入力】",
+    editable=True,
+    type=["numericColumn"]
+)
+
+gb.configure_column(
+    "IP",
+    header_name="IP【入力】",
+    editable=True,
+    type=["numericColumn"]
+)
+
+
+# ---------------------------------------------------------
+# 自動計算列
+# ---------------------------------------------------------
+
+gb.configure_column(
+    "累計距離",
+    header_name="累計距離【自動計算】",
+    editable=False,
+    type=["numericColumn"]
+)
+
+gb.configure_column(
+    "IH",
+    header_name="IH【自動計算】",
+    editable=False,
+    type=["numericColumn"]
+)
+
+gb.configure_column(
+    "GH",
+    header_name="GH【自動計算】",
+    editable=False,
+    type=["numericColumn"]
+)
+
+
+# =========================================================
+# セルの色
+# =========================================================
+
+input_cell_style = JsCode("""
 function(params) {
     return {
         'backgroundColor': '#d9eef7'
@@ -321,8 +442,7 @@ function(params) {
 """)
 
 
-# 自動計算セル（黄色）
-calculation_style = JsCode("""
+auto_cell_style = JsCode("""
 function(params) {
     return {
         'backgroundColor': '#fff4cc'
@@ -331,8 +451,7 @@ function(params) {
 """)
 
 
-# 累計距離（灰色）
-distance_style = JsCode("""
+distance_cell_style = JsCode("""
 function(params) {
     return {
         'backgroundColor': '#eeeeee'
@@ -341,181 +460,247 @@ function(params) {
 """)
 
 
-# =========================
-# AgGrid設定
-# =========================
-gb = GridOptionsBuilder.from_dataframe(result)
-
-
-# 行選択を有効化
-gb.configure_selection(
-    selection_mode="multiple",
-    use_checkbox=True
-)
-
-
-# 測点
-gb.configure_column(
-    "測点",
-    headerName="測点【入力】",
-    editable=True,
-    width=140
-)
-
-
-# 距離
-gb.configure_column(
+# 入力セル
+for column in [
     "距離",
-    headerName="距離【入力】",
-    editable=True,
-    width=140
-)
+    "BS",
+    "TP",
+    "IP"
+]:
+
+    gb.configure_column(
+        column,
+        cellStyle=input_cell_style
+    )
+
+
+# 自動計算セル
+for column in [
+    "IH",
+    "GH"
+]:
+
+    gb.configure_column(
+        column,
+        cellStyle=auto_cell_style
+    )
 
 
 # 累計距離
 gb.configure_column(
     "累計距離",
-    headerName="累計距離【自動計算】",
-    editable=False,
-    width=180,
-    cellStyle=distance_style
+    cellStyle=distance_cell_style
 )
 
 
-# BS
-gb.configure_column(
-    "BS",
-    headerName="BS【入力】",
-    editable=True,
-    width=140,
-    cellStyle=input_style
-)
-
-
-# IH
-gb.configure_column(
-    "IH",
-    headerName="IH【自動計算】",
-    editable=False,
-    width=180,
-    cellStyle=calculation_style
-)
-
-
-# TP
-gb.configure_column(
-    "TP",
-    headerName="TP【入力】",
-    editable=True,
-    width=140,
-    cellStyle=input_style
-)
-
-
-# IP
-gb.configure_column(
-    "IP",
-    headerName="IP【入力】",
-    editable=True,
-    width=140,
-    cellStyle=input_style
-)
-
-
-# GH
-gb.configure_column(
-    "GH",
-    headerName="GH【自動計算】",
-    editable=False,
-    width=180,
-    cellStyle=calculation_style
-)
-
-
-# =========================
-# Grid表示
-# =========================
 grid_options = gb.build()
+
+
+# =========================================================
+# AgGrid表示
+# =========================================================
 
 grid_return = AgGrid(
     result,
     gridOptions=grid_options,
+
+    # ★重要
+    # 行追加・削除時だけGridを新しくする
+    key=f"survey_grid_{st.session_state.grid_version}",
+
     height=500,
-    allow_unsafe_jscode=True,
-    fit_columns_on_grid_load=True
+
+    fit_columns_on_grid_load=True,
+
+    allow_unsafe_jscode=True
 )
 
 
-# =========================
-# 編集後データ
-# =========================
-edited = pd.DataFrame(
-    grid_return["data"]
-)
+# =========================================================
+# AgGridから返ってきたデータ
+# =========================================================
+
+returned_data = grid_return.get("data")
 
 
-# 数値列を数値化
-for column in [
-    "距離",
-    "累計距離",
-    "BS",
-    "IH",
-    "TP",
-    "IP",
-    "GH"
-]:
+if returned_data is not None:
 
-    edited[column] = pd.to_numeric(
-        edited[column],
-        errors="coerce"
+    returned_df = pd.DataFrame(returned_data)
+
+    returned_inputs = normalize_input_data(
+        returned_df
     )
 
 
-# =========================
-# 選択行を削除
-# =========================
-selected_rows = grid_return.get(
-    "selected_rows",
-    []
-)
+    # =====================================================
+    # 選択された行
+    # =====================================================
 
-if selected_rows:
+    selected_rows = grid_return.get(
+        "selected_rows",
+        []
+    )
 
-    if st.button("− 選択行を削除"):
 
-        selected_indexes = [
-            row["_selectedRowNodeInfo"]["nodeRowIndex"]
-            if "_selectedRowNodeInfo" in row
-            else None
-            for row in selected_rows
-        ]
+    selected_ids = []
 
-        selected_indexes = [
-            i for i in selected_indexes
-            if i is not None
-        ]
+    for row in selected_rows:
 
-        if selected_indexes:
+        if "_row_id" in row:
 
-            edited = edited.drop(
-                index=selected_indexes
-            ).reset_index(drop=True)
+            try:
+                selected_ids.append(
+                    int(row["_row_id"])
+                )
+            except:
+                pass
 
-            st.session_state.data = edited
+
+    # =====================================================
+    # 行削除
+    # =====================================================
+
+    if selected_ids:
+
+        if st.button("− 選択行を削除"):
+
+            # AgGridから返ってきた最新の入力内容を使う
+            new_data = returned_inputs[
+                ~returned_inputs["_row_id"].isin(
+                    selected_ids
+                )
+            ].reset_index(drop=True)
+
+            st.session_state.data = new_data
+
+            # Gridを新しくする
+            st.session_state.grid_version += 1
 
             st.rerun()
 
 
-# セッションに保存
-st.session_state.data = edited
+    # =====================================================
+    # ★重要
+    # 入力内容が変わったら即座に保存
+    # =====================================================
+
+    old_signature = data_signature(
+        st.session_state.data
+    )
+
+    new_signature = data_signature(
+        returned_inputs
+    )
 
 
-# =========================
+    if old_signature != new_signature:
+
+        # ★計算結果ではなく
+        # 入力データだけを保存する
+        st.session_state.data = returned_inputs
+
+        # 保存後にもう一度画面を描画
+        st.rerun()
+
+
+# =========================================================
 # Excel保存
-# =========================
-st.subheader("💾 データ保存")
+# =========================================================
+
+st.markdown("---")
 
 if st.button("Excelに保存"):
+
+    # 最新の入力データから再計算
+    input_data = normalize_input_data(
+        st.session_state.data
+    )
+
+    cumulative = []
+
+    total_distance = 0.0
+
+    for distance in input_data["距離"]:
+
+        if pd.notna(distance):
+
+            total_distance += float(distance)
+            cumulative.append(total_distance)
+
+        else:
+
+            cumulative.append(None)
+
+
+    ih_values = []
+    gh_values = []
+
+    current_gh = float(base_gh)
+    current_ih = None
+
+
+    for i, (bs, tp, ip) in enumerate(
+        zip(
+            input_data["BS"],
+            input_data["TP"],
+            input_data["IP"]
+        )
+    ):
+
+        if pd.notna(bs):
+
+            current_ih = current_gh + float(bs)
+            ih_values.append(current_ih)
+
+        else:
+
+            ih_values.append(None)
+
+
+        if current_ih is not None and pd.notna(tp):
+
+            current_gh = current_ih - float(tp)
+            gh_values.append(current_gh)
+
+        elif current_ih is not None and pd.notna(ip):
+
+            current_gh = current_ih - float(ip)
+            gh_values.append(current_gh)
+
+        elif i == 0:
+
+            gh_values.append(current_gh)
+
+        else:
+
+            gh_values.append(None)
+
+
+    excel_result = input_data.copy()
+
+    excel_result["累計距離"] = cumulative
+    excel_result["IH"] = ih_values
+    excel_result["GH"] = gh_values
+
+
+    # _row_idはExcelには出さない
+    excel_result = excel_result[
+        [
+            "測点",
+            "距離",
+            "累計距離",
+            "BS",
+            "IH",
+            "TP",
+            "IP",
+            "GH"
+        ]
+    ]
+
+
+    # =====================================================
+    # Excel作成
+    # =====================================================
 
     output = BytesIO()
 
@@ -526,11 +711,9 @@ if st.button("Excelに保存"):
     ws.title = "測量野帳"
 
 
-    # -------------------------
     # ヘッダー
-    # -------------------------
     for col_num, column_name in enumerate(
-        result.columns,
+        excel_result.columns,
         1
     ):
 
@@ -541,11 +724,9 @@ if st.button("Excelに保存"):
         )
 
 
-    # -------------------------
     # データ
-    # -------------------------
     for row_num, row in enumerate(
-        result.itertuples(index=False),
+        excel_result.itertuples(index=False),
         2
     ):
 
@@ -563,9 +744,7 @@ if st.button("Excelに保存"):
                 )
 
 
-    # -------------------------
     # 列幅
-    # -------------------------
     for column in ws.columns:
 
         ws.column_dimensions[
@@ -573,20 +752,24 @@ if st.button("Excelに保存"):
         ].width = 12
 
 
-    # -------------------------
-    # Excel作成
-    # -------------------------
     wb.save(output)
 
     output.seek(0)
 
 
-    # -------------------------
+    # =====================================================
     # ダウンロード
-    # -------------------------
+    # =====================================================
+
     st.download_button(
         label="Excelファイルをダウンロード",
+
         data=output,
+
         file_name="水準測量_器高式計算.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+        mime=(
+            "application/vnd.openxmlformats-officedocument."
+            "spreadsheetml.sheet"
+        )
     )
