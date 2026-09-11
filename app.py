@@ -28,6 +28,7 @@ st.set_page_config(
 
 st.markdown("""
 <style>
+
 .stApp {
     background-color: #f1f5f9;
 }
@@ -45,6 +46,7 @@ div[data-testid="stNumberInput"] {
 .stButton > button {
     border-radius: 6px;
 }
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -99,136 +101,224 @@ base_gh = st.number_input(
 
 
 # =========================================================
-# データ初期化
+# データ作成
 # =========================================================
 
-columns = [
-    "測点",
-    "距離",
-    "累計距離",
-    "BS",
-    "IH",
-    "TP",
-    "IP",
-    "GH",
-]
+def create_empty_data(rows=10):
 
-
-if "survey_data" not in st.session_state:
-
-    st.session_state.survey_data = pd.DataFrame({
-        "測点": ["" for _ in range(10)],
-        "距離": [None for _ in range(10)],
-        "累計距離": [None for _ in range(10)],
-        "BS": [None for _ in range(10)],
-        "IH": [None for _ in range(10)],
-        "TP": [None for _ in range(10)],
-        "IP": [None for _ in range(10)],
-        "GH": [None for _ in range(10)],
+    return pd.DataFrame({
+        "測点": ["" for _ in range(rows)],
+        "距離": [None for _ in range(rows)],
+        "BS": [None for _ in range(rows)],
+        "TP": [None for _ in range(rows)],
+        "IP": [None for _ in range(rows)],
     })
 
 
 # =========================================================
-# 入力データだけ取り出す
+# セッション初期化
+# =========================================================
+
+if "survey_data" not in st.session_state:
+
+    st.session_state.survey_data = create_empty_data(10)
+
+
+# =========================================================
+# 入力データを整理
 # =========================================================
 
 def get_input_data(df):
 
+    df = df.copy()
+
+    # 列が存在しない場合に備える
+    for col in [
+        "測点",
+        "距離",
+        "BS",
+        "TP",
+        "IP",
+    ]:
+
+        if col not in df.columns:
+
+            if col == "測点":
+                df[col] = ""
+
+            else:
+                df[col] = None
+
+
     result = pd.DataFrame()
 
-    result["測点"] = df["測点"].fillna("").astype(str)
+    result["測点"] = (
+        df["測点"]
+        .fillna("")
+        .astype(str)
+    )
 
-    for col in ["距離", "BS", "TP", "IP"]:
+
+    for col in [
+        "距離",
+        "BS",
+        "TP",
+        "IP",
+    ]:
 
         result[col] = pd.to_numeric(
             df[col],
             errors="coerce"
         )
 
+
+    # ★重要
+    # 行番号を必ず 0,1,2,3... にする
+    result = result.reset_index(drop=True)
+
     return result
 
 
 # =========================================================
-# 計算
+# 器高式計算
 # =========================================================
 
 def calculate_data(input_df, base_gh):
 
-    result = input_df.copy()
+    # ★重要
+    # 計算前に必ずindexをリセット
+    result = (
+        input_df
+        .copy()
+        .reset_index(drop=True)
+    )
 
-    # -----------------------------
+
+    # =====================================================
     # 累計距離
-    # -----------------------------
+    # =====================================================
 
     cumulative = []
 
-    total = 0.0
+    total_distance = 0.0
 
-    for value in result["距離"]:
+    for i in range(len(result)):
 
-        if pd.notna(value):
+        distance = result.iloc[i]["距離"]
 
-            total += float(value)
+        if pd.notna(distance):
 
-            cumulative.append(total)
+            total_distance += float(distance)
+
+            cumulative.append(
+                total_distance
+            )
 
         else:
 
             cumulative.append(None)
 
+
     result["累計距離"] = cumulative
 
 
-    # -----------------------------
+    # =====================================================
     # IH・GH
-    # -----------------------------
+    # =====================================================
 
     ih_values = []
     gh_values = []
 
+
+    # 最初の基準GH
     current_gh = float(base_gh)
+
     current_ih = None
+
 
     for i in range(len(result)):
 
-        bs = result.loc[i, "BS"]
-        tp = result.loc[i, "TP"]
-        ip = result.loc[i, "IP"]
+        # ★ilocを使用して行番号問題を防止
+        bs = result.iloc[i]["BS"]
+        tp = result.iloc[i]["TP"]
+        ip = result.iloc[i]["IP"]
 
 
-        # BSが入力されたらIHを計算
+        # -------------------------------------------------
+        # BSが入力された場合
+        # IH = GH + BS
+        # -------------------------------------------------
+
         if pd.notna(bs):
 
-            current_ih = current_gh + float(bs)
+            current_ih = (
+                current_gh
+                + float(bs)
+            )
 
-            ih_values.append(current_ih)
+            ih_values.append(
+                current_ih
+            )
 
         else:
 
             ih_values.append(None)
 
 
-        # TP
-        if current_ih is not None and pd.notna(tp):
+        # -------------------------------------------------
+        # TPが入力された場合
+        # GH = IH - TP
+        # -------------------------------------------------
 
-            current_gh = current_ih - float(tp)
+        if (
+            current_ih is not None
+            and pd.notna(tp)
+        ):
 
-            gh_values.append(current_gh)
+            current_gh = (
+                current_ih
+                - float(tp)
+            )
+
+            gh_values.append(
+                current_gh
+            )
 
 
-        # IP
-        elif current_ih is not None and pd.notna(ip):
+        # -------------------------------------------------
+        # IPが入力された場合
+        # GH = IH - IP
+        # -------------------------------------------------
 
-            current_gh = current_ih - float(ip)
+        elif (
+            current_ih is not None
+            and pd.notna(ip)
+        ):
 
-            gh_values.append(current_gh)
+            current_gh = (
+                current_ih
+                - float(ip)
+            )
+
+            gh_values.append(
+                current_gh
+            )
 
 
-        # 最初のGH
+        # -------------------------------------------------
+        # 1行目
+        # -------------------------------------------------
+
         elif i == 0:
 
-            gh_values.append(current_gh)
+            gh_values.append(
+                current_gh
+            )
 
+
+        # -------------------------------------------------
+        # それ以外
+        # -------------------------------------------------
 
         else:
 
@@ -239,7 +329,10 @@ def calculate_data(input_df, base_gh):
     result["GH"] = gh_values
 
 
+    # =====================================================
     # 列順
+    # =====================================================
+
     result = result[
         [
             "測点",
@@ -252,6 +345,11 @@ def calculate_data(input_df, base_gh):
             "GH",
         ]
     ]
+
+
+    # ★最後にもindexをリセット
+    result = result.reset_index(drop=True)
+
 
     return result
 
@@ -266,7 +364,7 @@ input_data = get_input_data(
 
 
 # =========================================================
-# AgGrid
+# AgGrid設定
 # =========================================================
 
 gb = GridOptionsBuilder.from_dataframe(
@@ -274,9 +372,9 @@ gb = GridOptionsBuilder.from_dataframe(
 )
 
 
-# -----------------------------
+# =========================================================
 # 列設定
-# -----------------------------
+# =========================================================
 
 gb.configure_column(
     "測点",
@@ -377,6 +475,7 @@ function(params) {
 """)
 
 
+# 入力セル
 gb.configure_column(
     "距離",
     cellStyle=input_style
@@ -397,11 +496,8 @@ gb.configure_column(
     cellStyle=input_style
 )
 
-gb.configure_column(
-    "累計距離",
-    cellStyle=gray_style
-)
 
+# 自動計算セル
 gb.configure_column(
     "IH",
     cellStyle=auto_style
@@ -413,9 +509,16 @@ gb.configure_column(
 )
 
 
-# -----------------------------
+# 累計距離
+gb.configure_column(
+    "累計距離",
+    cellStyle=gray_style
+)
+
+
+# =========================================================
 # 行選択
-# -----------------------------
+# =========================================================
 
 gb.configure_selection(
     selection_mode="multiple",
@@ -423,9 +526,9 @@ gb.configure_selection(
 )
 
 
-# -----------------------------
-# 編集したら値を返す
-# -----------------------------
+# =========================================================
+# 編集設定
+# =========================================================
 
 gb.configure_grid_options(
     stopEditingWhenCellsLoseFocus=True
@@ -442,19 +545,26 @@ grid_options = gb.build()
 grid_return = AgGrid(
     input_data,
     gridOptions=grid_options,
+
     height=500,
     width="100%",
+
     data_return_mode=DataReturnMode.AS_INPUT,
+
     update_mode=GridUpdateMode.VALUE_CHANGED,
+
     allow_unsafe_jscode=True,
+
     fit_columns_on_grid_load=False,
+
     reload_data=False,
+
     key="survey_grid",
 )
 
 
 # =========================================================
-# AgGridから入力値を取得
+# AgGridからデータ取得
 # =========================================================
 
 returned_data = grid_return.get("data")
@@ -462,7 +572,10 @@ returned_data = grid_return.get("data")
 
 if returned_data is not None:
 
-    if isinstance(returned_data, pd.DataFrame):
+    if isinstance(
+        returned_data,
+        pd.DataFrame
+    ):
 
         edited_input = get_input_data(
             returned_data
@@ -470,24 +583,39 @@ if returned_data is not None:
 
     else:
 
-        edited_input = pd.DataFrame(
-            returned_data
-        )
+        try:
 
-        edited_input = get_input_data(
-            edited_input
-        )
+            edited_input = pd.DataFrame(
+                returned_data
+            )
+
+            edited_input = get_input_data(
+                edited_input
+            )
+
+        except Exception:
+
+            edited_input = get_input_data(
+                st.session_state.survey_data
+            )
 
 
-    # 現在の入力値と比較
     old_input = get_input_data(
         st.session_state.survey_data
     )
 
 
-    if not edited_input.equals(old_input):
+    # =====================================================
+    # 入力値が変更された場合
+    # =====================================================
 
-        st.session_state.survey_data = edited_input
+    if not edited_input.equals(
+        old_input
+    ):
+
+        st.session_state.survey_data = (
+            edited_input
+        )
 
         st.rerun()
 
@@ -511,9 +639,21 @@ result = calculate_data(
 col1, col2 = st.columns(2)
 
 
+# =========================================================
+# 行追加
+# =========================================================
+
 with col1:
 
-    if st.button("＋ 行を追加", use_container_width=True):
+    if st.button(
+        "＋ 行を追加",
+        use_container_width=True
+    ):
+
+        current = get_input_data(
+            st.session_state.survey_data
+        )
+
 
         new_row = pd.DataFrame({
             "測点": [""],
@@ -523,17 +663,24 @@ with col1:
             "IP": [None],
         })
 
-        current = get_input_data(
-            st.session_state.survey_data
+
+        st.session_state.survey_data = (
+            pd.concat(
+                [
+                    current,
+                    new_row
+                ],
+                ignore_index=True
+            )
         )
 
-        st.session_state.survey_data = pd.concat(
-            [current, new_row],
-            ignore_index=True
-        )
 
         st.rerun()
 
+
+# =========================================================
+# 行削除
+# =========================================================
 
 with col2:
 
@@ -547,15 +694,20 @@ with col2:
             []
         )
 
+
+        # DataFrameの場合
         if isinstance(
             selected_rows,
             pd.DataFrame
         ):
 
-            selected_rows = selected_rows.to_dict(
-                "records"
+            selected_rows = (
+                selected_rows
+                .to_dict("records")
             )
 
+
+        # Noneなどの場合
         if not isinstance(
             selected_rows,
             list
@@ -564,6 +716,7 @@ with col2:
             selected_rows = []
 
 
+        # 選択されている場合
         if len(selected_rows) > 0:
 
             current = get_input_data(
@@ -571,36 +724,94 @@ with col2:
             )
 
 
-            indexes = []
+            # 選択された行のインデックス
+            selected_indexes = []
+
 
             for row in selected_rows:
 
-                if isinstance(row, dict):
+                if not isinstance(
+                    row,
+                    dict
+                ):
 
-                    if "測点" in row:
+                    continue
 
-                        # 行の位置を特定
+
+                # AgGridから行番号を取得
+                if "_selectedRowNodeInfo" in row:
+
+                    try:
+
+                        row_index = int(
+                            row[
+                                "_selectedRowNodeInfo"
+                            ]["node"]["rowIndex"]
+                        )
+
+                        selected_indexes.append(
+                            row_index
+                        )
+
+                    except Exception:
+
+                        pass
+
+
+            # rowIndexが取れなかった場合
+            # 測点を使って探す
+            if not selected_indexes:
+
+                for row in selected_rows:
+
+                    if (
+                        isinstance(row, dict)
+                        and "測点" in row
+                    ):
+
+                        target = str(
+                            row["測点"]
+                        )
+
+
                         for i in range(
                             len(current)
                         ):
 
-                            if (
-                                current.loc[i, "測点"]
-                                == str(row["測点"])
-                            ):
+                            if str(
+                                current.iloc[i]["測点"]
+                            ) == target:
 
-                                indexes.append(i)
+                                selected_indexes.append(
+                                    i
+                                )
 
                                 break
 
 
-            if indexes:
+            # 重複削除
+            selected_indexes = sorted(
+                set(selected_indexes)
+            )
+
+
+            if selected_indexes:
 
                 current = current.drop(
-                    indexes
-                ).reset_index(drop=True)
+                    selected_indexes
+                )
 
-                st.session_state.survey_data = current
+
+                current = (
+                    current
+                    .reset_index(drop=True)
+                )
+
+
+                st.session_state.survey_data = (
+                    current
+                )
+
 
                 st.rerun()
 
@@ -615,6 +826,7 @@ st.subheader("計算結果")
 display_result = result.copy()
 
 
+# 数値を小数第3位表示
 for col in [
     "距離",
     "累計距離",
@@ -625,10 +837,13 @@ for col in [
     "GH",
 ]:
 
-    display_result[col] = display_result[col].apply(
-        lambda x: (
-            "" if pd.isna(x)
-            else f"{float(x):.3f}"
+    display_result[col] = (
+        display_result[col]
+        .apply(
+            lambda x:
+                ""
+                if pd.isna(x)
+                else f"{float(x):.3f}"
         )
     )
 
@@ -654,6 +869,8 @@ if st.button(
 
     output = BytesIO()
 
+
+    # Workbook作成
     wb = Workbook()
 
     ws = wb.active
@@ -661,7 +878,10 @@ if st.button(
     ws.title = "測量野帳"
 
 
+    # =====================================================
     # ヘッダー
+    # =====================================================
+
     for col_num, column_name in enumerate(
         result.columns,
         1
@@ -674,7 +894,10 @@ if st.button(
         )
 
 
+    # =====================================================
     # データ
+    # =====================================================
+
     for row_num, row in enumerate(
         result.itertuples(index=False),
         2
@@ -694,7 +917,10 @@ if st.button(
                 )
 
 
+    # =====================================================
     # 列幅
+    # =====================================================
+
     for column in ws.columns:
 
         ws.column_dimensions[
@@ -702,15 +928,27 @@ if st.button(
         ].width = 14
 
 
+    # 保存
     wb.save(output)
 
     output.seek(0)
 
 
+    # =====================================================
+    # ダウンロード
+    # =====================================================
+
     st.download_button(
         label="Excelファイルをダウンロード",
+
         data=output,
+
         file_name="水準測量_器高式計算.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+
+        mime=(
+            "application/vnd.openxmlformats-officedocument."
+            "spreadsheetml.sheet"
+        ),
+
         use_container_width=True
     )
