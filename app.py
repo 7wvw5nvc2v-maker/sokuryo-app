@@ -47,21 +47,6 @@ div[data-testid="stNumberInput"] {
     border-radius: 6px;
 }
 
-/* 行全体のホバー色を抑え、操作中のセルだけを強調 */
-.ag-theme-streamlit .ag-row-hover,
-.ag-theme-alpine .ag-row-hover {
-    background-color: transparent !important;
-}
-.ag-theme-streamlit .ag-row-selected,
-.ag-theme-alpine .ag-row-selected {
-    background-color: transparent !important;
-}
-.ag-theme-streamlit .ag-cell-focus,
-.ag-theme-alpine .ag-cell-focus {
-    border: 2px solid #2563eb !important;
-    outline: none !important;
-}
-
 </style>
 """, unsafe_allow_html=True)
 
@@ -493,26 +478,31 @@ function(params) {
 # 入力セル
 gb.configure_column(
     "測点",
+    cellClass="input-cell",
     cellStyle=input_style
 )
 
 gb.configure_column(
     "距離",
+    cellClass="input-cell",
     cellStyle=input_style
 )
 
 gb.configure_column(
     "BS",
+    cellClass="input-cell",
     cellStyle=input_style
 )
 
 gb.configure_column(
     "TP",
+    cellClass="input-cell",
     cellStyle=input_style
 )
 
 gb.configure_column(
     "IP",
+    cellClass="input-cell",
     cellStyle=input_style
 )
 
@@ -520,11 +510,13 @@ gb.configure_column(
 # 自動計算セル
 gb.configure_column(
     "IH",
+    cellClass="auto-cell",
     cellStyle=auto_style
 )
 
 gb.configure_column(
     "GH",
+    cellClass="auto-cell",
     cellStyle=auto_style
 )
 
@@ -532,6 +524,7 @@ gb.configure_column(
 # 累計距離
 gb.configure_column(
     "累計距離",
+    cellClass="gray-cell",
     cellStyle=gray_style
 )
 
@@ -568,7 +561,13 @@ grid_return = AgGrid(
     gridOptions=grid_options,
     custom_css={
         ".ag-row-hover": {"background-color": "transparent !important"},
+        ".ag-row-hover .ag-cell": {"background-color": "transparent !important"},
         ".ag-row-selected": {"background-color": "transparent !important"},
+        ".ag-row-selected .ag-cell": {"background-color": "transparent !important"},
+        ".input-cell": {"background-color": "#d9eef7 !important"},
+        ".auto-cell": {"background-color": "#fff4cc !important"},
+        ".gray-cell": {"background-color": "#eeeeee !important"},
+        ".ag-cell:hover": {"background-color": "#e5e7eb !important"},
         ".ag-cell-focus": {
             "border": "2px solid #2563eb !important",
             "outline": "none !important",
