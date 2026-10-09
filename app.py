@@ -576,6 +576,14 @@ grid_return = AgGrid(
         ".input-cell": {"background-color": "#d9eef7 !important"},
         ".auto-cell": {"background-color": "#fff4cc !important"},
         ".gray-cell": {"background-color": "#eeeeee !important"},
+        # AgGrid may paint the hovered row behind transparent calculated cells.
+        # Explicitly restore each non-hovered cell by its actual column id.
+        ".ag-row-hover .ag-cell:not(:hover)[col-id='IH']": {"background-color": "#fff4cc !important"},
+        ".ag-row-hover .ag-cell:not(:hover)[col-id='GH']": {"background-color": "#fff4cc !important"},
+        ".ag-row-hover .ag-cell:not(:hover)[col-id='累計距離']": {"background-color": "#eeeeee !important"},
+        ".ag-row-selected .ag-cell:not(:hover)[col-id='IH']": {"background-color": "#fff4cc !important"},
+        ".ag-row-selected .ag-cell:not(:hover)[col-id='GH']": {"background-color": "#fff4cc !important"},
+        ".ag-row-selected .ag-cell:not(:hover)[col-id='累計距離']": {"background-color": "#eeeeee !important"},
         ".ag-cell:hover": {"background-color": "#e5e7eb !important"},
         ".ag-cell-focus": {"border": "2px solid #2563eb !important", "outline": "none !important"},
     },
