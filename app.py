@@ -264,28 +264,32 @@ grid_return = AgGrid(
     input_data,
     gridOptions=grid_options,
     custom_css={
-        # 行ホバー／行選択で、行全体に色を付けない
+        # 行そのもののホバー／選択背景を透明にする
+        # ※セル側を透明にすると行の灰色が透けるため、セル背景は透明にしない
         ".ag-row-hover": {
             "background-color": "transparent !important",
-        },
-        ".ag-row-hover .ag-cell": {
-            "background-color": "inherit !important",
         },
         ".ag-row-selected": {
             "background-color": "transparent !important",
         },
-        ".ag-row-selected .ag-cell": {
-            "background-color": "inherit !important",
-        },
 
-        # 各セルの通常色を維持する
-        ".ag-cell.input-cell": {
+        # ホバーしていないセルは、列ごとの通常色を明示的に維持する
+        ".ag-row-hover .ag-cell.input-cell:not(:hover)": {
             "background-color": "#d9eef7 !important",
         },
-        ".ag-cell.auto-cell": {
+        ".ag-row-hover .ag-cell.auto-cell:not(:hover)": {
             "background-color": "#fff4cc !important",
         },
-        ".ag-cell.gray-cell": {
+        ".ag-row-hover .ag-cell.gray-cell:not(:hover)": {
+            "background-color": "#eeeeee !important",
+        },
+        ".ag-row-selected .ag-cell.input-cell:not(:hover)": {
+            "background-color": "#d9eef7 !important",
+        },
+        ".ag-row-selected .ag-cell.auto-cell:not(:hover)": {
+            "background-color": "#fff4cc !important",
+        },
+        ".ag-row-selected .ag-cell.gray-cell:not(:hover)": {
             "background-color": "#eeeeee !important",
         },
 
@@ -300,7 +304,7 @@ grid_return = AgGrid(
             "background-color": "#e5e7eb !important",
         },
 
-        # 選択中のセルは枠線のみ表示し、行全体は強調しない
+        # クリック中のセルは青い枠線で示す
         ".ag-cell-focus": {
             "border": "2px solid #2563eb !important",
             "outline": "none !important",
