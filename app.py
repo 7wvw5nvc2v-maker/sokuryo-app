@@ -561,17 +561,16 @@ grid_return = AgGrid(
     gridOptions=grid_options,
     custom_css={
         ".ag-row-hover": {"background-color": "transparent !important"},
-        ".ag-row-hover .ag-cell": {"background-color": "transparent !important"},
         ".ag-row-selected": {"background-color": "transparent !important"},
-        ".ag-row-selected .ag-cell": {"background-color": "transparent !important"},
+        ".ag-row-hover .ag-cell:not(:hover), .ag-row-selected .ag-cell:not(:hover)": {"background-color": "transparent !important"},
+        ".ag-row-hover .input-cell:not(:hover), .ag-row-selected .input-cell:not(:hover)": {"background-color": "#d9eef7 !important"},
+        ".ag-row-hover .auto-cell:not(:hover), .ag-row-selected .auto-cell:not(:hover)": {"background-color": "#fff4cc !important"},
+        ".ag-row-hover .gray-cell:not(:hover), .ag-row-selected .gray-cell:not(:hover)": {"background-color": "#eeeeee !important"},
         ".input-cell": {"background-color": "#d9eef7 !important"},
         ".auto-cell": {"background-color": "#fff4cc !important"},
         ".gray-cell": {"background-color": "#eeeeee !important"},
         ".ag-cell:hover": {"background-color": "#e5e7eb !important"},
-        ".ag-cell-focus": {
-            "border": "2px solid #2563eb !important",
-            "outline": "none !important",
-        },
+        ".ag-cell-focus": {"border": "2px solid #2563eb !important", "outline": "none !important"},
     },
 
     height=500,
