@@ -531,7 +531,8 @@ gb.configure_selection(
 # =========================================================
 
 gb.configure_grid_options(
-    stopEditingWhenCellsLoseFocus=True
+    stopEditingWhenCellsLoseFocus=True,
+    suppressRowHoverHighlight=True
 )
 
 
