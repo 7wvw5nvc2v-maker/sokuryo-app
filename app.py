@@ -47,6 +47,21 @@ div[data-testid="stNumberInput"] {
     border-radius: 6px;
 }
 
+/* 行全体のホバー色を抑え、操作中のセルだけを強調 */
+.ag-theme-streamlit .ag-row-hover,
+.ag-theme-alpine .ag-row-hover {
+    background-color: transparent !important;
+}
+.ag-theme-streamlit .ag-row-selected,
+.ag-theme-alpine .ag-row-selected {
+    background-color: transparent !important;
+}
+.ag-theme-streamlit .ag-cell-focus,
+.ag-theme-alpine .ag-cell-focus {
+    border: 2px solid #2563eb !important;
+    outline: none !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -477,6 +492,11 @@ function(params) {
 
 # 入力セル
 gb.configure_column(
+    "測点",
+    cellStyle=input_style
+)
+
+gb.configure_column(
     "距離",
     cellStyle=input_style
 )
@@ -546,6 +566,14 @@ grid_options = gb.build()
 grid_return = AgGrid(
     input_data,
     gridOptions=grid_options,
+    custom_css={
+        ".ag-row-hover": {"background-color": "transparent !important"},
+        ".ag-row-selected": {"background-color": "transparent !important"},
+        ".ag-cell-focus": {
+            "border": "2px solid #2563eb !important",
+            "outline": "none !important",
+        },
+    },
 
     height=500,
     width="100%",
