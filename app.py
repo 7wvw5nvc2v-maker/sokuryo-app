@@ -53,7 +53,7 @@ st.write("水準測量で使用する器高式の計算を自動化するアプ�
 with st.expander("使い方", expanded=True):
     st.write(
         """
-        ① 基準GHを入力します。
+        ① 基準地盤高（GH）を入力します。
 
         ② 水色のセルに測定値を入力します。
 
