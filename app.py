@@ -1,8 +1,8 @@
-
 import streamlit as st
 import pandas as pd
 from io import BytesIO
 from openpyxl import Workbook
+
 from st_aggrid import (
     AgGrid,
     GridOptionsBuilder,
@@ -53,7 +53,7 @@ st.write("水準測量で使用する器高式の計算を自動化するアプ�
 with st.expander("使い方", expanded=True):
     st.write(
         """
-        ① 基準地盤高（GH）を入力します。
+        ① 基準GHを入力します。
 
         ② 水色のセルに測定値を入力します。
 
@@ -67,354 +67,375 @@ with st.expander("使い方", expanded=True):
         """
     )
 
-st.markdown("🟦 **入力**　　🟨 **自動計算**　　🟪 **累計距離**")
+st.markdown("🟦 **入力**　　🟨 **自動計算**　　⬜ **累計距離**")
 
 # =========================================================
 # 基準GH
 # =========================================================
 base_gh = st.number_input(
-    "基準地盤高（GH）",
+    "基準GH",
     value=500.000,
     step=0.001,
     format="%.3f",
 )
 
 # =========================================================
-# データ作成
+# データ作成・入力データ整理
 # =========================================================
 def create_empty_data(rows=10):
-    return pd.DataFrame({
-        "_row_id": range(rows),
-        "測点": ["" for _ in range(rows)],
-        "距離": [None for _ in range(rows)],
-        "累計距離": [None for _ in range(rows)],
-        "BS": [None for _ in range(rows)],
-        "IH": [None for _ in range(rows)],
-        "TP": [None for _ in range(rows)],
-        "IP": [None for _ in range(rows)],
-        "GH": [None for _ in range(rows)],
-    })
+    return pd.DataFrame(
+        {
+            "測点": ["" for _ in range(rows)],
+            "距離": [None for _ in range(rows)],
+            "BS": [None for _ in range(rows)],
+            "TP": [None for _ in range(rows)],
+            "IP": [None for _ in range(rows)],
+        }
+    )
 
 
 if "survey_data" not in st.session_state:
-    st.session_state.survey_data = create_empty_data()
-
-if "grid_version" not in st.session_state:
-    st.session_state.grid_version = 0
+    st.session_state.survey_data = create_empty_data(10)
 
 
-# =========================================================
-# 数値変換
-# =========================================================
-def to_number(value):
-    try:
-        if pd.isna(value) or value == "":
-            return None
-        return float(value)
-    except (ValueError, TypeError):
-        return None
-
-
-# =========================================================
-# 器高式の自動計算
-# =========================================================
-def calculate_data(df, base_gh):
-
+def get_input_data(df):
     df = df.copy()
 
-    current_ih = None
-    last_gh = base_gh
+    for col in ["測点", "距離", "BS", "TP", "IP"]:
+        if col not in df.columns:
+            df[col] = "" if col == "測点" else None
+
+    result = pd.DataFrame()
+    result["測点"] = df["測点"].fillna("").astype(str)
+
+    for col in ["距離", "BS", "TP", "IP"]:
+        result[col] = pd.to_numeric(df[col], errors="coerce")
+
+    return result.reset_index(drop=True)
+
+
+# =========================================================
+# 器高式計算
+# =========================================================
+def calculate_data(input_df, base_gh):
+    result = input_df.copy().reset_index(drop=True)
+
+    cumulative = []
     total_distance = 0.0
 
-    ih_list = []
-    gh_list = []
-    distance_list = []
+    for i in range(len(result)):
+        distance = result.iloc[i]["距離"]
+        if pd.notna(distance):
+            total_distance += float(distance)
+            cumulative.append(total_distance)
+        else:
+            cumulative.append(None)
 
-    for _, row in df.iterrows():
+    result["累計距離"] = cumulative
 
-        distance = to_number(row["距離"])
-        bs = to_number(row["BS"])
-        tp = to_number(row["TP"])
-        ip = to_number(row["IP"])
+    ih_values = []
+    gh_values = []
+    current_gh = float(base_gh)
+    current_ih = None
 
-        # 累計距離
-        if distance is not None:
-            total_distance += distance
+    for i in range(len(result)):
+        bs = result.iloc[i]["BS"]
+        tp = result.iloc[i]["TP"]
+        ip = result.iloc[i]["IP"]
 
-        distance_list.append(total_distance)
+        if pd.notna(bs):
+            current_ih = current_gh + float(bs)
+            ih_values.append(current_ih)
+        else:
+            ih_values.append(None)
 
-        # 地盤高の計算
-        gh = None
+        if current_ih is not None and pd.notna(tp):
+            current_gh = current_ih - float(tp)
+            gh_values.append(current_gh)
+        elif current_ih is not None and pd.notna(ip):
+            current_gh = current_ih - float(ip)
+            gh_values.append(current_gh)
+        elif i == 0:
+            gh_values.append(current_gh)
+        else:
+            gh_values.append(None)
 
-        if tp is not None and current_ih is not None:
-            gh = current_ih - tp
-            last_gh = gh
+    result["IH"] = ih_values
+    result["GH"] = gh_values
 
-        elif ip is not None and current_ih is not None:
-            gh = current_ih - ip
-
-        # 後視から新しい器械高を計算
-        if bs is not None:
-            current_ih = last_gh + bs
-
-        ih_list.append(current_ih)
-        gh_list.append(gh)
-
-    df["累計距離"] = distance_list
-    df["IH"] = ih_list
-    df["GH"] = gh_list
-
-    return df
+    result = result[
+        ["測点", "距離", "累計距離", "BS", "IH", "TP", "IP", "GH"]
+    ]
+    return result.reset_index(drop=True)
 
 
 # =========================================================
-# データ計算
+# AgGrid設定
 # =========================================================
-calculated_data = calculate_data(
-    st.session_state.survey_data,
-    base_gh
+input_data = get_input_data(st.session_state.survey_data)
+gb = GridOptionsBuilder.from_dataframe(input_data)
+
+gb.configure_column(
+    "測点", headerName="測点", editable=True, width=120
+)
+gb.configure_column(
+    "距離", headerName="距離【入力】", editable=True,
+    type=["numericColumn"], width=130
+)
+gb.configure_column(
+    "累計距離", headerName="累計距離【自動計算】",
+    editable=False, width=150
+)
+gb.configure_column(
+    "BS", headerName="BS【入力】", editable=True,
+    type=["numericColumn"], width=130
+)
+gb.configure_column(
+    "IH", headerName="IH【自動計算】", editable=False, width=140
+)
+gb.configure_column(
+    "TP", headerName="TP【入力】", editable=True,
+    type=["numericColumn"], width=130
+)
+gb.configure_column(
+    "IP", headerName="IP【入力】", editable=True,
+    type=["numericColumn"], width=130
+)
+gb.configure_column(
+    "GH", headerName="GH【自動計算】", editable=False, width=140
 )
 
-# =========================================================
-# AgGridのセル色設定
-# =========================================================
+# セルの基本色
 input_style = JsCode("""
 function(params) {
-    return {
-        backgroundColor: '#dbeafe',
-        color: '#1e293b'
-    };
+    return {'background-color': '#d9eef7'};
 }
 """)
-
 auto_style = JsCode("""
 function(params) {
-    return {
-        backgroundColor: '#fef3c7',
-        color: '#1e293b'
-    };
+    return {'background-color': '#fff4cc'};
 }
 """)
-
-distance_style = JsCode("""
+gray_style = JsCode("""
 function(params) {
-    return {
-        backgroundColor: '#ede9fe',
-        color: '#1e293b'
-    };
+    return {'background-color': '#eeeeee'};
 }
 """)
 
-# =========================================================
-# 表の設定
-# =========================================================
-gb = GridOptionsBuilder.from_dataframe(calculated_data)
-
-gb.configure_default_column(
-    editable=False,
-    resizable=True,
-    sortable=False,
-    filter=False,
-    minWidth=90,
-)
-
-# 入力セル
 for col in ["測点", "距離", "BS", "TP", "IP"]:
     gb.configure_column(
         col,
-        editable=True,
+        cellClass="input-cell",
         cellStyle=input_style,
     )
 
-# 自動計算セル
 for col in ["IH", "GH"]:
     gb.configure_column(
         col,
-        editable=False,
+        cellClass="auto-cell",
         cellStyle=auto_style,
-        type=["numericColumn"],
-        valueFormatter="value == null ? '' : Number(value).toFixed(3)",
     )
 
-# 累計距離
 gb.configure_column(
     "累計距離",
-    editable=False,
-    cellStyle=distance_style,
-    type=["numericColumn"],
-    valueFormatter="value == null ? '' : Number(value).toFixed(3)",
+    cellClass="gray-cell",
+    cellStyle=gray_style,
 )
 
-# 内部管理用IDは非表示
-gb.configure_column(
-    "_row_id",
-    hide=True,
-)
-
-# 行選択
+# チェックボックスによる行選択（行削除用）
 gb.configure_selection(
     selection_mode="multiple",
     use_checkbox=True,
 )
 
+# 行全体のホバー強調を無効化
+gb.configure_grid_options(
+    stopEditingWhenCellsLoseFocus=True,
+    suppressRowHoverHighlight=True,
+    rowSelection="multiple",
+)
+
 grid_options = gb.build()
 
-grid_options["rowHeight"] = 42
-grid_options["headerHeight"] = 45
-grid_options["suppressRowClickSelection"] = True
-grid_options["stopEditingWhenCellsLoseFocus"] = True
-
 # =========================================================
-# 入力表
+# AgGrid表示
 # =========================================================
-st.subheader("測量データ入力")
-
-grid_response = AgGrid(
-    calculated_data,
+grid_return = AgGrid(
+    input_data,
     gridOptions=grid_options,
+    custom_css={
+        ".ag-row-hover": {
+            "background-color": "transparent !important",
+        },
+        ".ag-row-hover .ag-cell": {
+            "background-color": "inherit !important",
+        },
+        ".ag-row-selected": {
+            "background-color": "transparent !important",
+        },
+        ".ag-row-selected .ag-cell": {
+            "background-color": "inherit !important",
+        },
+        ".ag-cell.input-cell": {
+            "background-color": "#d9eef7 !important",
+        },
+        ".ag-cell.auto-cell": {
+            "background-color": "#fff4cc !important",
+        },
+        ".ag-cell.gray-cell": {
+            "background-color": "#eeeeee !important",
+        },
+        ".ag-cell.input-cell:hover": {
+            "background-color": "#e5e7eb !important",
+        },
+        ".ag-cell.auto-cell:hover": {
+            "background-color": "#e5e7eb !important",
+        },
+        ".ag-cell.gray-cell:hover": {
+            "background-color": "#e5e7eb !important",
+        },
+        ".ag-cell-focus": {
+            "border": "2px solid #2563eb !important",
+            "outline": "none !important",
+        },
+    },
+    height=500,
+    width="100%",
     data_return_mode=DataReturnMode.AS_INPUT,
-    update_mode=(
-        GridUpdateMode.VALUE_CHANGED
-        | GridUpdateMode.SELECTION_CHANGED
-    ),
-    fit_columns_on_grid_load=True,
+    update_mode=GridUpdateMode.VALUE_CHANGED,
     allow_unsafe_jscode=True,
-    theme="streamlit",
-    height=450,
-    key=f"survey_grid_{st.session_state.grid_version}",
+    fit_columns_on_grid_load=False,
+    reload_data=False,
+    key="survey_grid",
 )
 
 # =========================================================
-# 入力内容を保存
+# AgGridからデータ取得
 # =========================================================
-edited_data = grid_response["data"]
+returned_data = grid_return.get("data")
 
-if not isinstance(edited_data, pd.DataFrame):
-    edited_data = pd.DataFrame(edited_data)
+if returned_data is not None:
+    try:
+        if isinstance(returned_data, pd.DataFrame):
+            edited_input = get_input_data(returned_data)
+        else:
+            edited_input = get_input_data(pd.DataFrame(returned_data))
 
-if "_row_id" not in edited_data.columns:
-    edited_data["_row_id"] = range(len(edited_data))
+        old_input = get_input_data(st.session_state.survey_data)
 
-st.session_state.survey_data = edited_data[
-    [
-        "_row_id", "測点", "距離", "累計距離",
-        "BS", "IH", "TP", "IP", "GH"
-    ]
-].copy()
+        if not edited_input.equals(old_input):
+            st.session_state.survey_data = edited_input
+            st.rerun()
+    except Exception:
+        pass
 
 # =========================================================
-# 行の追加・削除
+# 計算結果
 # =========================================================
-col1, col2, col3 = st.columns([1, 1, 4])
+result = calculate_data(
+    get_input_data(st.session_state.survey_data),
+    base_gh,
+)
+
+# =========================================================
+# 行追加・削除
+# =========================================================
+col1, col2 = st.columns(2)
 
 with col1:
     if st.button("＋ 行を追加", use_container_width=True):
-
-        new_data = create_empty_data(1)
-        new_id = (
-            int(st.session_state.survey_data["_row_id"].max()) + 1
-            if len(st.session_state.survey_data) > 0
-            else 0
+        current = get_input_data(st.session_state.survey_data)
+        new_row = pd.DataFrame(
+            {
+                "測点": [""],
+                "距離": [None],
+                "BS": [None],
+                "TP": [None],
+                "IP": [None]
+            }
         )
-
-        new_data["_row_id"] = new_id
-
         st.session_state.survey_data = pd.concat(
-            [st.session_state.survey_data, new_data],
-            ignore_index=True
+            [current, new_row], ignore_index=True
         )
-
-        st.session_state.grid_version += 1
         st.rerun()
 
 with col2:
     if st.button("− 選択行を削除", use_container_width=True):
+        selected_rows = grid_return.get("selected_rows", [])
 
-        selected = grid_response.get("selected_rows")
+        if isinstance(selected_rows, pd.DataFrame):
+            selected_rows = selected_rows.to_dict("records")
+        if not isinstance(selected_rows, list):
+            selected_rows = []
 
-        if selected is not None:
+        if selected_rows:
+            current = get_input_data(st.session_state.survey_data)
+            selected_indexes = []
 
-            if isinstance(selected, pd.DataFrame):
-                selected_ids = selected["_row_id"].tolist()
+            for row in selected_rows:
+                if not isinstance(row, dict):
+                    continue
+                info = row.get("_selectedRowNodeInfo", {})
+                node = info.get("node", {}) if isinstance(info, dict) else {}
+                if "rowIndex" in node:
+                    try:
+                        selected_indexes.append(int(node["rowIndex"]))
+                    except (TypeError, ValueError):
+                        pass
 
-            elif isinstance(selected, list):
-                selected_ids = [
-                    row["_row_id"]
-                    for row in selected
-                    if "_row_id" in row
-                ]
-
+            if not selected_indexes:
+                st.warning("選択した行の番号を取得できませんでした。もう一度選択してください。")
             else:
-                selected_ids = []
-
-            if selected_ids:
-                st.session_state.survey_data = (
-                    st.session_state.survey_data[
-                        ~st.session_state.survey_data["_row_id"].isin(
-                            selected_ids
-                        )
-                    ].reset_index(drop=True)
-                )
-
-                st.session_state.grid_version += 1
+                current = current.drop(index=sorted(set(selected_indexes)))
+                st.session_state.survey_data = current.reset_index(drop=True)
                 st.rerun()
-            else:
-                st.warning("削除する行を選択してください。")
-        else:
-            st.warning("削除する行を選択してください。")
 
 # =========================================================
-# Excelダウンロード
+# 計算結果表示
 # =========================================================
-st.divider()
+st.subheader("計算結果")
+display_result = result.copy()
 
-st.subheader("Excelファイル保存")
-
-final_data = calculate_data(
-    st.session_state.survey_data,
-    base_gh
-)
-
-excel_data = final_data.drop(columns=["_row_id"])
-
-output = BytesIO()
-
-with pd.ExcelWriter(output, engine="openpyxl") as writer:
-
-    excel_data.to_excel(
-        writer,
-        index=False,
-        sheet_name="水準測量野帳"
+for col in ["距離", "累計距離", "BS", "IH", "TP", "IP", "GH"]:
+    display_result[col] = display_result[col].apply(
+        lambda x: "" if pd.isna(x) else f"{float(x):.3f}"
     )
 
-    ws = writer.sheets["水準測量野帳"]
-
-    # 基準GHを記載
-    ws["K1"] = "基準地盤高（GH）"
-    ws["K2"] = base_gh
-
-    # 列幅
-    for column in ws.columns:
-        max_length = max(
-            len(str(cell.value)) if cell.value is not None else 0
-            for cell in column
-        )
-        ws.column_dimensions[
-            column[0].column_letter
-        ].width = max_length + 4
-
-    # 数値の小数点表示
-    for row in ws.iter_rows(min_row=2):
-        for cell in row:
-            if cell.column != 1:
-                cell.number_format = "0.000"
-
-st.download_button(
-    label="📥 Excelファイルをダウンロード",
-    data=output.getvalue(),
-    file_name="水準測量野帳.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+st.dataframe(
+    display_result,
     use_container_width=True,
+    hide_index=True,
 )
 
-st.caption("水準測量・器高式計算アプリ")
+# =========================================================
+# Excel保存
+# =========================================================
+st.subheader("Excel保存")
+
+if st.button("Excelに保存", use_container_width=True):
+    output = BytesIO()
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "測量野帳"
+
+    for col_num, column_name in enumerate(result.columns, 1):
+        ws.cell(row=1, column=col_num, value=column_name)
+
+    for row_num, row in enumerate(result.itertuples(index=False), 2):
+        for col_num, value in enumerate(row, 1):
+            if pd.notna(value):
+                ws.cell(row=row_num, column=col_num, value=value)
+
+    for column in ws.columns:
+        ws.column_dimensions[column[0].column_letter].width = 14
+
+    wb.save(output)
+    output.seek(0)
+
+    st.download_button(
+        label="Excelファイルをダウンロード",
+        data=output,
+        file_name="水準測量_器高式計算.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True,
+    )
