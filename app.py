@@ -459,7 +459,7 @@ grid_return = AgGrid(
     fit_columns_on_grid_load=False,
     reload_data=True,
     key=f"survey_grid_{st.session_state.get('grid_version', 0)}",
-
+)
 
 # =========================================================
 # AgGridからデータ取得
