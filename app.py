@@ -682,20 +682,32 @@ for col in ["距離", "累計距離", "BS", "IH", "TP", "IP", "GH"]:
 # 表全体のスタイル設定
 styled_result = (
     display_result.style
+    .hide(axis="index")
     .set_properties(**{
         "text-align": "right",
+        "padding": "10px",
     })
     .set_table_styles([
+        {
+            "selector": "table",
+            "props": [
+                ("width", "100%"),
+                ("table-layout", "auto"),
+                ("border-collapse", "collapse"),
+            ],
+        },
         {
             "selector": "th",
             "props": [
                 ("text-align", "right"),
+                ("padding", "10px"),
             ],
         },
         {
             "selector": "td",
             "props": [
                 ("text-align", "right"),
+                ("padding", "10px"),
             ],
         },
     ])
@@ -705,7 +717,6 @@ st.markdown(
     styled_result.to_html(),
     unsafe_allow_html=True,
 )
-
 
 # =========================================================
 # Excel保存
