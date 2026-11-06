@@ -456,7 +456,8 @@ grid_return = AgGrid(
     allow_unsafe_jscode=True,
     fit_columns_on_grid_load=False,
     reload_data=True,
-key="survey_grid",
+    key="survey_grid",
+)
 
 
 # =========================================================
