@@ -446,6 +446,9 @@ grid_return = AgGrid(
         ".ag-cell.gray-cell:hover": {
             "background-color": "#e5e7eb !important",
         },
+        ".ag-cell": {
+            "text-align": "right !important",
+        },
         ".ag-cell-focus": {
             "border": "2px solid #2563eb !important",
             "outline": "none !important",
@@ -460,6 +463,7 @@ grid_return = AgGrid(
     reload_data=True,
     key=f"survey_grid_{st.session_state.get('grid_version', 0)}",
 )
+
 
 # =========================================================
 # AgGridからデータ取得
