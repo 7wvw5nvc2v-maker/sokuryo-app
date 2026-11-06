@@ -679,10 +679,21 @@ for col in ["距離", "累計距離", "BS", "IH", "TP", "IP", "GH"]:
         lambda x: "" if pd.isna(x) else f"{float(x):.3f}"
     )
 
+# 数値列を右揃えに設定
+column_config = {
+    col: st.column_config.TextColumn(
+        col,
+        help="",
+        width="medium",
+    )
+    for col in ["距離", "累計距離", "BS", "IH", "TP", "IP", "GH"]
+}
+
 st.dataframe(
     display_result,
     use_container_width=True,
     hide_index=True,
+    column_config=column_config,
 )
 
 
