@@ -113,15 +113,13 @@ def save_data(df, base_gh):
     }
 
     localS.setItem(
-        "survey_app_data",
-        json.dumps(
-            save_data_dict,
-            ensure_ascii=False,
-            allow_nan=False,
-        ),
-        key="survey_app_data_save",
-    )
-
+    "survey_app_data",
+    json.dumps(
+        save_data_dict,
+        ensure_ascii=False,
+        allow_nan=False,
+    ),
+)
 
 # =========================================================
 # デザイン
