@@ -646,13 +646,13 @@ if st.button(
     # 入力データを空の状態に戻す
     st.session_state.survey_data = create_empty_data()
 
-    # 基準GHを0に戻す
-    st.session_state.base_gh_input = 0.000
+    # 基準GHの初期化予約
+    st.session_state.reset_base_gh = True
 
     # 初期化したデータを保存
     save_data(
         st.session_state.survey_data,
-        st.session_state.base_gh_input,
+        0.000,
     )
 
     st.rerun()
