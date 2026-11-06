@@ -115,6 +115,7 @@ def get_input_data(df):
     return result.reset_index(drop=True)
 
 
+
 # =========================================================
 # 器高式計算
 # =========================================================
@@ -136,6 +137,7 @@ def calculate_data(input_df, base_gh):
 
     ih_values = []
     gh_values = []
+
     current_gh = float(base_gh)
     current_ih = None
 
@@ -144,22 +146,27 @@ def calculate_data(input_df, base_gh):
         tp = result.iloc[i]["TP"]
         ip = result.iloc[i]["IP"]
 
+        # ① 前の器械高を使ってGHを計算
+        if current_ih is not None and pd.notna(tp):
+            current_gh = current_ih - float(tp)
+            gh_values.append(current_gh)
+
+        elif current_ih is not None and pd.notna(ip):
+            current_gh = current_ih - float(ip)
+            gh_values.append(current_gh)
+
+        elif i == 0:
+            gh_values.append(current_gh)
+
+        else:
+            gh_values.append(None)
+
+        # ② BSから新しい器械高を計算
         if pd.notna(bs):
             current_ih = current_gh + float(bs)
             ih_values.append(current_ih)
         else:
             ih_values.append(None)
-
-        if current_ih is not None and pd.notna(tp):
-            current_gh = current_ih - float(tp)
-            gh_values.append(current_gh)
-        elif current_ih is not None and pd.notna(ip):
-            current_gh = current_ih - float(ip)
-            gh_values.append(current_gh)
-        elif i == 0:
-            gh_values.append(current_gh)
-        else:
-            gh_values.append(None)
 
     result["IH"] = ih_values
     result["GH"] = gh_values
@@ -167,7 +174,9 @@ def calculate_data(input_df, base_gh):
     result = result[
         ["測点", "距離", "累計距離", "BS", "IH", "TP", "IP", "GH"]
     ]
+
     return result.reset_index(drop=True)
+
 
 
 # =========================================================
