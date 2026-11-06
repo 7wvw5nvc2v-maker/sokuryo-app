@@ -59,10 +59,7 @@ localS = LocalStorage()
 
 saved_raw = localS.getItem("survey_app_data")
 
-# 初回読み込み時はブラウザからの応答を待つ
-if "storage_read_requested" not in st.session_state:
-    st.session_state.storage_read_requested = True
-    st.stop()
+
 
 
 # 保存データを復元
