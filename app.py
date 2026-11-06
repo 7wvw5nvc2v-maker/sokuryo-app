@@ -559,71 +559,78 @@ with col2:
 
         selected_rows = grid_return.get("selected_rows", [])
 
+        # 選択データをリスト形式に変換
         if isinstance(selected_rows, pd.DataFrame):
-
             selected_rows = selected_rows.to_dict("records")
 
-        if not isinstance(selected_rows, list):
-
+        if selected_rows is None:
             selected_rows = []
 
-        if selected_rows:
+        if not isinstance(selected_rows, list):
+            selected_rows = []
+
+        if not selected_rows:
+
+            st.warning("削除する行を選択してください。")
+
+        else:
 
             current = get_input_data(
                 st.session_state.survey_data
             )
 
+            # 選択された行の内容から削除対象を探す
             selected_indexes = []
+            used_indexes = set()
 
             for row in selected_rows:
 
-                if not isinstance(row, dict):
-                    continue
-
-                info = row.get("_selectedRowNodeInfo", {})
-
-                node = (
-                    info.get("node", {})
-                    if isinstance(info, dict)
-                    else {}
+                selected_data = get_input_data(
+                    pd.DataFrame([row])
                 )
 
-                if "rowIndex" in node:
+                selected_values = tuple(
+                    None if pd.isna(v) else v
+                    for v in selected_data.iloc[0].tolist()
+                )
 
-                    try:
+                for index, current_row in current.iterrows():
 
-                        selected_indexes.append(
-                            int(node["rowIndex"])
-                        )
+                    if index in used_indexes:
+                        continue
 
-                    except (TypeError, ValueError):
+                    current_values = tuple(
+                        None if pd.isna(v) else v
+                        for v in current_row.tolist()
+                    )
 
-                        pass
+                    if current_values == selected_values:
+
+                        selected_indexes.append(index)
+                        used_indexes.add(index)
+                        break
 
             if not selected_indexes:
 
-                st.warning(
-                    "選択した行の番号を取得できませんでした。もう一度選択してください。"
-                )
+                st.warning("選択した行を特定できませんでした。")
 
             else:
 
                 current = current.drop(
-                    index=sorted(set(selected_indexes))
+                    index=selected_indexes
                 )
 
                 st.session_state.survey_data = (
                     current.reset_index(drop=True)
                 )
 
-                # 行削除を保存
+                # 削除内容を保存
                 save_data(
                     st.session_state.survey_data,
                     st.session_state.base_gh_input,
                 )
 
                 st.rerun()
-
 
 # =========================================================
 # 計算結果表示
