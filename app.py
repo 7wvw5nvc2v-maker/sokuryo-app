@@ -182,14 +182,16 @@ st.markdown(
 # =========================================================
 # 基準GH
 # =========================================================
+if st.session_state.get("reset_base_gh", False):
+    st.session_state.base_gh_input = 0.000
+    st.session_state.reset_base_gh = False
+
 base_gh = st.number_input(
     "基準GH",
-    value=st.session_state.base_gh_input,
     step=0.001,
     format="%.3f",
     key="base_gh_input",
 )
-
 
 # =========================================================
 # 器高式計算
@@ -456,8 +458,7 @@ grid_return = AgGrid(
     allow_unsafe_jscode=True,
     fit_columns_on_grid_load=False,
     reload_data=True,
-    key="survey_grid",
-)
+    key=f"survey_grid_{st.session_state.get('grid_version', 0)}",
 
 
 # =========================================================
@@ -643,11 +644,15 @@ if st.button(
     type="secondary"
 ):
 
-    # 入力データを空の状態に戻す
     st.session_state.survey_data = create_empty_data()
 
-    # 基準GHの初期化予約
+    # 基準GHを0に戻す予約
     st.session_state.reset_base_gh = True
+
+    # AgGridを新しく作り直す
+    st.session_state.grid_version = (
+        st.session_state.get("grid_version", 0) + 1
+    )
 
     # 初期化したデータを保存
     save_data(
