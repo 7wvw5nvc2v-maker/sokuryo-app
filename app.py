@@ -632,6 +632,31 @@ with col2:
 
                 st.rerun()
 
+# ---------------------------------------------------------
+# データ初期化
+# ---------------------------------------------------------
+st.divider()
+
+if st.button(
+    "↻ データを初期化",
+    use_container_width=True,
+    type="secondary"
+):
+
+    # 入力データを空の状態に戻す
+    st.session_state.survey_data = create_empty_data()
+
+    # 基準GHを0に戻す
+    st.session_state.base_gh_input = 0.000
+
+    # 初期化したデータを保存
+    save_data(
+        st.session_state.survey_data,
+        st.session_state.base_gh_input,
+    )
+
+    st.rerun()
+
 # =========================================================
 # 計算結果表示
 # =========================================================
